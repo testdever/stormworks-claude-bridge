@@ -1,0 +1,94 @@
+{
+  "values": {
+    "received": 1444,
+    "malformed": 0,
+    "bad_values": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 30.79,
+    "full_seconds": 30,
+    "min_per_sec": 46,
+    "max_per_sec": 49,
+    "avg_per_sec": 46.9,
+    "q1_pass": false
+  },
+  "commands": {
+    "issued": 10,
+    "acked": 10,
+    "commands": [
+      {
+        "id": 1,
+        "values": {
+          "1": 1.0
+        },
+        "latency_s": 1.12
+      },
+      {
+        "id": 2,
+        "values": {
+          "1": 0.0
+        },
+        "latency_s": 1.136
+      },
+      {
+        "id": 3,
+        "values": {
+          "1": 1.0
+        },
+        "latency_s": 1.115
+      },
+      {
+        "id": 4,
+        "values": {
+          "1": 0.0
+        },
+        "latency_s": 1.108
+      },
+      {
+        "id": 5,
+        "values": {
+          "1": 1.0
+        },
+        "latency_s": 1.113
+      },
+      {
+        "id": 6,
+        "values": {
+          "1": 0.0
+        },
+        "latency_s": 1.113
+      },
+      {
+        "id": 7,
+        "values": {
+          "1": 1.0
+        },
+        "latency_s": 1.129
+      },
+      {
+        "id": 8,
+        "values": {
+          "1": 0.0
+        },
+        "latency_s": 1.117
+      },
+      {
+        "id": 9,
+        "values": {
+          "1": 1.0
+        },
+        "latency_s": 1.128
+      },
+      {
+        "id": 10,
+        "values": {
+          "1": 0.0
+        },
+        "latency_s": 1.121
+      }
+    ],
+    "max_latency_s": 1.136,
+    "q2_pass": true
+  }
+}

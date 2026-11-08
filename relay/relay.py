@@ -40,6 +40,7 @@ Q2_COMMANDS = 10
 Q2_MAX_LATENCY = 2.0
 Q2_INTERVAL = 3.0
 VALUE_PATHS = ("/v", "/q1")
+RESEND_TICKS = 60  # マイコンの Lua が返事を待つ tick 数。これ以上空いた次の要求は送り直し
 
 
 def format_value(x: float) -> str:
@@ -92,6 +93,8 @@ class Recorder:
         self._seqs: list[int] = []
         self._bad_values = 0
         self._malformed = 0
+        self._resent = 0
+        self._prev: tuple[int, int] | None = None
         self._log = open(log_path, "a", encoding="utf-8") if log_path else None
 
     def add(self, seq: int, tick: int, values: list[float], t: float | None = None, ack: int | None = None) -> None:
@@ -99,6 +102,9 @@ class Recorder:
         with self._lock:
             self._times.append(t)
             self._seqs.append(seq)
+            if self._prev and seq == self._prev[0] + 1 and tick - self._prev[1] >= RESEND_TICKS:
+                self._resent += 1
+            self._prev = (seq, tick)
             if len(values) != self.expected_values:
                 self._bad_values += 1
             if self._log:
@@ -123,8 +129,8 @@ class Recorder:
     def summary(self) -> dict:
         with self._lock:
             times, seqs = list(self._times), list(self._seqs)
-            bad, malformed = self._bad_values, self._malformed
-        s = {"received": len(times), "malformed": malformed, "bad_values": bad,
+            bad, malformed, resent = self._bad_values, self._malformed, self._resent
+        s = {"received": len(times), "malformed": malformed, "bad_values": bad, "resent": resent,
              "expected_values": self.expected_values, "duplicates": 0, "missing": 0,
              "duration_s": 0.0, "full_seconds": 0, "min_per_sec": 0, "max_per_sec": 0,
              "avg_per_sec": 0.0, "q1_pass": False}
@@ -260,6 +266,7 @@ def report(s: dict) -> str:
         "---- 結果 ----",
         f"受信: {s['received']}件（形が違う要求 {s['malformed']}件、重複 {s['duplicates']}件）",
         f"欠け（通し番号の抜け）: {s['missing']}件",
+        f"マイコンが返事を待ちきれず送り直した回数: {s['resent']}回",
         f"値の数が {s['expected_values']} 個でない受信: {s['bad_values']}件",
         f"受信していた時間: {s['duration_s']}秒（数えた1秒の区切り {s['full_seconds']}個）",
         f"1秒あたり: 最小 {s['min_per_sec']} / 平均 {s['avg_per_sec']} / 最大 {s['max_per_sec']}",
@@ -280,8 +287,11 @@ def report(s: dict) -> str:
     return "\n".join(lines)
 
 
-def report_q2(c: dict) -> str:
+def report_q2(c: dict, s: dict | None = None) -> str:
     lines = ["---- 指示の結果 ----"]
+    if s is not None:
+        lines.append(f"受信: {s['received']}件、欠け {s['missing']}件、"
+                     f"マイコンが返事を待ちきれず送り直した回数 {s['resent']}回")
     for row in c["commands"]:
         vals = ", ".join(f"出力{k}={v:g}" for k, v in row["values"].items())
         lat = "反映されなかった" if row["latency_s"] is None else f"{row['latency_s']:.3f}秒で反映"
@@ -352,7 +362,7 @@ def main(argv: list[str] | None = None) -> int:
                 s = rec.summary()
                 extra = f"  反映済みの指示 {com.summary()['acked']}/{com.issued()}" if args.mode == "q2" else ""
                 print(f"経過 {now - t0:5.0f}秒  受信 {s['received']}件  直近1秒 {rec.count_since(now - 1)}件  "
-                      f"欠け {s['missing']}件{extra}")
+                      f"欠け {s['missing']}件  送り直し {s['resent']}回{extra}")
             if args.mode == "q1" and args.seconds > 0 and now - t0 >= args.seconds + 0.5:
                 break
     except KeyboardInterrupt:
@@ -368,7 +378,10 @@ def main(argv: list[str] | None = None) -> int:
         out["commands"] = com.summary()
     summary_path = logdir / f"{name}-summary.json"
     summary_path.write_text(json.dumps(out if args.mode == "q2" else s, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(report(s) if args.mode == "q1" else report_q2(out["commands"]))
+    print(report(s) if args.mode == "q1" else report_q2(out["commands"], s))
+    if s["resent"]:
+        print("注意: マイコンが返事を待ちきれず送り直しました。中継プログラムを機体より後に起動すると、"
+              "その間の要求がゲームに溜まり、最初の数秒は返事が遅れます。")
     print(f"まとめ: {summary_path}")
     return 0
 

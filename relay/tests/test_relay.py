@@ -73,6 +73,15 @@ class RecorderSummaryTest(unittest.TestCase):
         rec.add(seq=5, tick=10, values=values(), t=61.5)
         self.assertEqual(rec.summary()["duplicates"], 1)
 
+    def test_resend_after_timeout_is_counted(self):
+        rec = self.make()
+        rec.add(seq=1, tick=10, values=values(), t=0.0)
+        rec.add(seq=2, tick=13, values=values(), t=0.05)
+        rec.add(seq=3, tick=73, values=values(), t=0.06)   # 60 tick 空いた＝待ちきれず送り直した
+        rec.add(seq=4, tick=133, values=values(), t=0.07)
+        rec.add(seq=5, tick=135, values=values(), t=0.08)
+        self.assertEqual(rec.summary()["resent"], 2)
+
     def test_empty(self):
         s = self.make().summary()
         self.assertEqual(s["received"], 0)

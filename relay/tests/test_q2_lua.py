@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import threading
 import unittest
+import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -80,6 +81,56 @@ class LuaQ2Test(unittest.TestCase):
 
     def test_script_is_short_enough(self):
         self.assertLess(len(SCRIPT.read_text(encoding="utf-8")), 4096)
+
+
+class QueuedVehicle(FakeVehicle):
+    """ゲームの HTTP の代わり。要求を順に1 tick に1件ずつ送り、中継プログラムが止まっている間は溜める。"""
+
+    def __init__(self, port: int):
+        self.queue: list[str] = []
+        self.relay_up = False
+        super().__init__(port, script=SCRIPT)
+
+    def _http_get(self, port, url):
+        self.sent.append(url)
+        self.queue.append(url)
+
+    def tick(self, n: int = 1) -> None:
+        for _ in range(n):
+            if self.relay_up and self.queue:
+                url = self.queue.pop(0)
+                body = urllib.request.urlopen(f"http://127.0.0.1:{self.port}{url}", timeout=5).read().decode()
+                self.pending.append((self.port, url, body))
+            super().tick(1)
+
+
+@unittest.skipIf(lupa is None, "lupa がない")
+class BacklogTest(unittest.TestCase):
+    def test_backlog_drains_and_commands_are_fast_again(self):
+        rec = relay.Recorder(expected_values=32)
+        com = relay.Commander()
+        server = relay.make_server("127.0.0.1", 0, rec, com)
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            v = QueuedVehicle(port)
+            v.tick(60 * 50)            # 中継プログラムなしで50秒。待ちきれず送り直した要求が溜まる
+            self.assertGreaterEqual(len(v.queue), 45)
+            v.relay_up = True
+            v.tick(120)                # 溜まった分が流れ切るのに十分な時間
+            self.assertLessEqual(len(v.queue), 1)  # 最新の1件だけが送られ待ち
+            com.issue({1: 1.0})
+            for n in range(1, 30):
+                v.tick(1)
+                if com.summary()["acked"] == 1:
+                    break
+            self.assertLessEqual(n, 6, "溜まった要求が流れ切ったあとは、数 tick で指示が届く")
+            self.assertEqual(v.outputs[1], 1.0)
+            self.assertGreater(v.outputs[29], 0)  # 古い返事を無視した数
+            self.assertGreater(rec.summary()["resent"], 0)
+        finally:
+            server.shutdown()
+            server.server_close()
 
 
 if __name__ == "__main__":

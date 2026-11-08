@@ -14,9 +14,9 @@ id = "Q2"
 text = "中継プログラムの返事に載せた指示で、機体を動かせるか"
 criterion = "中継プログラムに置いた指示（例：スロットルの値）が、2秒以内に機体の入力に反映される。10回中10回"
 method = "Q1 と同じ機体で、中継プログラムに指示を10回置き、機体の入力に反映されるまでの時間を記録する"
-verdict = "open"
-result = ""
-evidence = []
+verdict = "pass"
+result = "10回中10回反映。最大1.136秒（すべて1.108〜1.136秒）"
+evidence = ["docs/evidence/E-007-q2-commands-reach-vehicle.md"]
 note = ""
 
 [[question]]
