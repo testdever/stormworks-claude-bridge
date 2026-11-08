@@ -1,0 +1,1 @@
+-- probe: no script. The env-mod vehicles in playlist.xml show whether this addon is loaded.
