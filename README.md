@@ -124,14 +124,24 @@ Claude に Stormworks の計測実験を任せるための仕組み。企画書�
 3. **専用サーバーを一度起動して閉じる。** 手順1のフォルダの `server64.exe` を起動し、ワールドの読み込みが終わったら、
    黒い窓を閉じて止める。これで `%APPDATA%\Stormworks\server_config.xml` ができる。
 4. **アドオンを専用サーバーから見える場所に入れる。** このリポジトリの `game/addon/ClaudeBridge` フォルダを、
-   手順1のフォルダ（ゲーム本体のフォルダ）の `rom\data\missions\` の下にコピーする。
-5. **専用サーバーの設定を書き換える。** `%APPDATA%\Stormworks\server_config.xml` を、念のため別の名前でコピーして控えを取ってから、メモ帳で開く。
-   `<playlists>` と `</playlists>` の間にある `<path path="…"/>` の行をすべて消し、代わりに次の1行を入れて保存する。
+   手順1のフォルダ（`server64.exe` がある、ゲーム本体のフォルダ）の**直下**にコピーする。
+   `Steam\steamapps\common\Stormworks\ClaudeBridge\playlist.xml` ができていればよい。
+   （`rom\data\missions\` の下ではサーバーに読み込まれなかった。Carsa's Commands の専用サーバー向けの手順に合わせた）
+5. **専用サーバーの設定を書き換える。** 専用サーバーを止めた状態で、`%APPDATA%\Stormworks\server_config.xml` を、
+   念のため別の名前でコピーして控えを取ってから、メモ帳で開く。`<playlists>` の部分を次のようにして保存する。
    ほかのアドオン（標準のミッションなど）を外して、軽くするため。
+   `<playlists/>` のように1つのタグになっていたら、それを丸ごと置き換える。
 
    ```
-   <path path="rom/data/missions/ClaudeBridge"/>
+   <playlists>
+   	<path path="ClaudeBridge"/>
+   </playlists>
    ```
+
+   サーバーは、見つからないアドオンの行を消して保存し直す。起動後にこの行が消えていたら、置き場所か名前が合っていない。
+6. **専用サーバーのワールドを作り直す。** アドオンはワールドを作るときに決まり、あとから足せない。
+   `%APPDATA%\Stormworks\saves\autosave_server` があれば、名前を変えて（例：`autosave_server_old`）よけておく。
+   次に `server64.exe` を起動したとき、ClaudeBridge 入りの新しいワールドが作られる。
 
 ### 手順
 
@@ -152,7 +162,8 @@ Claude に Stormworks の計測実験を任せるための仕組み。企画書�
 ### うまくいかないとき
 
 - **中継プログラムが「アドオンからの連絡」を待ったまま始まらない：** アドオンが読み込まれていない。
-  `server_config.xml` の行を `<path path="data/missions/ClaudeBridge"/>` に替えて（Q3 でゲーム用に置いた方を使う）、専用サーバーを起動し直す。
+  専用サーバーを止めて `server_config.xml` を開き、`<playlists>` の中の行が消えていないか見る。
+  消えていたら、置き場所（手順4）と名前を確かめ、手順5・6をやり直す。
 - **「置く → できなかった」：** 専用サーバーから機体の保存が見えていない。
   `%APPDATA%\Stormworks\data\vehicles\` に `claude_test.xml` と `claude_test_ka.xml` があるか確かめて、Claude に伝える。
 - **機体を置く場所：** 既定は Q1 で機体があった場所の 3m 上（ワールドの座標 -260.9, 8, -18949）。
