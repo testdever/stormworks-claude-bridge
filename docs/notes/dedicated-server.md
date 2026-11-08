@@ -33,19 +33,25 @@
 注意：
 
 - サーバーを動かしている間に書き換えると、上書きされることがある（フォーラムの助言）。止めてから書き換える。
-- サーバーは、受け付けない `<playlists>` の行を消して保存し直す。起動して閉じたあとに行が残っているかで、受け付けられたかが分かる。
+- 起動のあと、`<playlists>` の行が消えて保存し直されていることがあった（3 章）。消えた理由は分かっていない。
+  「消えた＝受け付けなかった」「残った＝受け付けた」は Claude の推測で、サーバーがアドオンを読めたかの証拠ではない。
 - 初回の起動時の `<playlists>` には、標準のミッションが `rom/data/missions/default_ai` などの形で25行ほど並んでいた。
 - 標準のミッションの `playlist.xml`（`rom\data\missions\default_tutorial\playlist.xml`）の1行目は
   `<playlist folder_path="../../assets/data/missions/default_tutorial" file_store="3" name="Default Tutorial">`。`path_id` はない。
 
 ## 3. アドオンの入れ方（試した順）
 
-| # | 置き場所 | `<playlists>` の書き方 | `playlist.xml` | 結果 |
-|---|---|---|---|---|
-| 1 | `Steam\…\Stormworks\rom\data\missions\ClaudeBridge` | `rom/data/missions/ClaudeBridge` | 最初の版（`path_id` なし、場所に島の指定なし） | 行が消された |
-| 2 | `Steam\…\Stormworks\ClaudeBridge`（`server64.exe` の直下） | `ClaudeBridge` | 最初の版 | 行が消された |
-| 3 | 同上 | `ClaudeBridge` | 新しい版（`path_id="app_data/data/missions/ClaudeBridge"`、場所に `tile="data/tiles/island12.xml"`） | 何も起きなかった（行が残ったかは見ていない） |
-| 4 | `%APPDATA%\Stormworks\data\missions\ClaudeBridge`（Q3 でゲーム用に置いた場所） | `app_data/data/missions/ClaudeBridge` | 新しい版 | **行が残った（受け付けられた）**。ただしアドオンからの連絡はなし |
+どの回も、`<playlists>` の中は ClaudeBridge の1行だけにしてから、専用サーバーを起動した。
+
+| # | 置き場所 | `<playlists>` の書き方 | `playlist.xml` | 起動後の設定ファイル | アドオンからの連絡 |
+|---|---|---|---|---|---|
+| 1 | `Steam\…\Stormworks\rom\data\missions\ClaudeBridge` | `rom/data/missions/ClaudeBridge` | 最初の版（`path_id` なし、場所に島の指定なし） | 行が消えて `<playlists/>` になっていた | なし |
+| 2 | `Steam\…\Stormworks\ClaudeBridge`（`server64.exe` の直下） | `ClaudeBridge` | 最初の版 | 行が消えていた | なし |
+| 3 | 同上 | `ClaudeBridge` | 新しい版（`path_id="app_data/data/missions/ClaudeBridge"`、場所に `tile="data/tiles/island12.xml"`） | 見ていない | なし |
+| 4 | `%APPDATA%\Stormworks\data\missions\ClaudeBridge`（Q3 でゲーム用に置いた場所） | `app_data/data/missions/ClaudeBridge` | 新しい版 | 行が残っていた | なし |
+
+行が消えた・残ったことが、サーバーがアドオンを読めたかどうかを表すのかは分からない（Claude の推測では、消えた＝見つけられなかった、残った＝見つけた）。
+どの回もアドオンからの連絡はなかったので、**サーバーがアドオンを正しく読めたことは、どの形でも確かめられていない。**
 
 根拠にした資料：
 
@@ -91,7 +97,7 @@
 
 アドオンからの連絡がない理由として、次の3つが残っている。
 
-1. **行は受け付けられたが、アドオンが読み込まれていない。** 行が残ることは、読み込みに成功した証拠までにはならない。
+1. **アドオンが読み込まれていない。** #4 で行が残ったことは、読み込みに成功した証拠にはならない。#1〜#3 の書き方のどれかが正しかった可能性も残る。
 2. **読み込まれているが、プレイヤーが一度も接続しないと動き出さない。**
 3. **動いているが、外に何も出ていない。** 専用サーバー（`server64.exe`）の `debug.log` が DebugView に出るかと、通信が外に出るかは、確かめていない。
 
