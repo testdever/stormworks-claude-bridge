@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <playlist path_id="app_data/data/missions/ClaudeProbe" folder_path="data/missions/ClaudeProbe" file_store="4" name="Claude Probe">
-	<locations location_id_counter="1" component_id_counter="0">
+	<locations location_id_counter="1" component_id_counter="1">
 		<locations>
-			<l id="1" tile="data/tiles/island12.xml" name="CLAUDE_PROBE" is_env_mod="false" env_mod_spawn_num="1">
-				<components/>
+			<l id="1" tile="data/tiles/island12.xml" name="CLAUDE_PROBE" is_env_mod="true" env_mod_spawn_num="1">
+				<components>
+					<c component_type="3" id="1" name="probe_vehicle" dynamic_object_type="2" character_outfit_category="11" character_type="1" vehicle_file_name="data/missions_working/vehicle_1.xml" vehicle_file_store="4" vehicle_is_static="true" vehicle_is_invulnerable="true">
+						<spawn_transform 30="0" 31="30" 32="0"/>
+						<spawn_bounds>
+							<min x="0" y="0" z="0"/>
+							<max x="0" y="0" z="0"/>
+						</spawn_bounds>
+						<spawn_local_offset y="0"/>
+						<graph_links/>
+					</c>
+				</components>
 			</l>
 		</locations>
 	</locations>

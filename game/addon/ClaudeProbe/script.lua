@@ -1,6 +1,8 @@
--- Claude Probe: check whether addon scripts run on a server with no players.
--- On the first tick, spawn one saved vehicle (no HTTP). If the script runs,
--- the server screen shows vehicles other than 0/0.
+-- Claude Probe: check whether the addon is loaded, and whether its script runs,
+-- on a server with no players.
+-- playlist.xml: one env-mod vehicle (vehicle_1.xml) is placed when the world is created -> proves loading.
+-- script: on the first tick, spawn one more saved vehicle (no HTTP) -> proves the script runs.
+-- Server screen "vehicles": 0 = not loaded, 1 = loaded but script did nothing, 2 = both.
 VEHICLE="claude_test"
 X,Y,Z=-260.9,8,-18949
 done_=false
