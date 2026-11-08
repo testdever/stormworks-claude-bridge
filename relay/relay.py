@@ -97,6 +97,11 @@ class Recorder:
         self._resent = 0
         self._prev: tuple[int, int] | None = None
         self._log = open(log_path, "a", encoding="utf-8") if log_path else None
+        self._listeners: list = []
+
+    def add_listener(self, fn) -> None:
+        """値が届くたびに fn(t, seq, tick, values) を呼ぶ。"""
+        self._listeners.append(fn)
 
     def add(self, seq: int, tick: int, values: list[float], t: float | None = None, ack: int | None = None) -> None:
         t = time.monotonic() if t is None else t
@@ -114,6 +119,8 @@ class Recorder:
                     row["a"] = ack
                 row["v"] = [v if math.isfinite(v) else str(v) for v in values]
                 self._log.write(json.dumps(row, ensure_ascii=False) + "\n")
+        for fn in self._listeners:
+            fn(t, seq, tick, values)
 
     def add_malformed(self) -> None:
         with self._lock:
@@ -354,6 +361,177 @@ class Q3Runner:
                 "q3_pass": len(self.results) >= Q3_CYCLES and spawn_ok == despawn_ok == len(self.results)}
 
 
+class Q4Runner:
+    """機体を1台ずつ決まった場所に置き、出力1で回し、seconds 秒のあいだ物理が進み続けるかを見る。
+
+    window 秒ごとの区切りで、マイコンから値が届いているか・値が変わっているかを調べる。
+    どの区切りも届いていて変わっていて、その間プレイヤーが0人なら、その機体は合格。
+    """
+
+    CHANGE_EPS = 1e-5
+    WATCH_CHANNELS = 17
+
+    def __init__(self, ops: AddonOps, recorder: Recorder, commander: Commander, vehicles: list[str],
+                 pos: tuple[float, float, float], seconds: float = 60.0, window: float = 10.0,
+                 gap: float = 5.0, timeout: float = 10.0):
+        self.ops, self.recorder, self.commander = ops, recorder, commander
+        self.vehicles, self.pos = list(vehicles), pos
+        self.seconds, self.window, self.gap, self.timeout = seconds, window, gap, timeout
+        self.state, self.done = "start", False
+        self.results: list[dict] = []
+        self.log: list[str] = []
+        self._cur: dict = {}
+        self._op, self._mark = 0, 0.0
+        self._samples: list[tuple[float, list[float]]] = []
+        self._lock = threading.Lock()
+        recorder.add_listener(self._on_values)
+
+    def _on_values(self, t, seq, tick, values) -> None:
+        with self._lock:
+            if self.state == "observing":
+                self._samples.append((t, list(values)))
+
+    def step(self, now: float) -> None:
+        if self.done:
+            return
+        if self.state == "start":
+            if self.ops.polls:
+                self._spawn_next(now)
+        elif self.state == "spawning":
+            o = self.ops.get(self._op)
+            if o["done_t"] is not None or now - self._mark >= self.timeout:
+                self._cur["spawn_ok"] = bool(o["ok"])
+                self.log.append(f"「{self._cur['name']}」を置く → " + ("できた" if o["ok"] else "できなかった"))
+                if o["ok"]:
+                    self.commander.issue({1: 1.0}, t=now)
+                    with self._lock:
+                        self._samples = []
+                        self.state = "observing"
+                    self._mark = now
+                    self._cur["max_players"] = self.ops.status()["players"]
+                    self._cur["sim_seen"] = set()
+                    self.log.append(f"{self.seconds:g}秒間、物理が進むかを見ます（誰も接続しないでください）")
+                else:
+                    self._finish_vehicle(now, observed=False)
+        elif self.state == "observing":
+            st = self.ops.status()
+            self._cur["max_players"] = max(self._cur["max_players"], st["players"])
+            self._cur["sim_seen"].add(st["sim"])
+            if now - self._mark >= self.seconds:
+                with self._lock:
+                    self.state = "despawning"
+                    samples = list(self._samples)
+                self._cur["windows"] = self._judge(samples, self._mark)
+                self._op = self.ops.despawn(t=now)
+                self._mark = now
+        elif self.state == "despawning":
+            o = self.ops.get(self._op)
+            if o["done_t"] is not None or now - self._mark >= self.timeout:
+                self._cur["despawn_ok"] = bool(o["ok"])
+                self._finish_vehicle(now, observed=True)
+        elif self.state == "gap":
+            if now - self._mark >= self.gap:
+                if len(self.results) >= len(self.vehicles):
+                    self.done = True
+                else:
+                    self._spawn_next(now)
+
+    def _spawn_next(self, now: float) -> None:
+        name = self.vehicles[len(self.results)]
+        self._cur = {"name": name}
+        self._op = self.ops.spawn(name, self.pos, relative=False, t=now)
+        self.state, self._mark = "spawning", now
+
+    def _judge(self, samples: list[tuple[float, list[float]]], start: float) -> list[dict]:
+        n = max(1, int(round(self.seconds / self.window)))
+        wins = []
+        for i in range(n):
+            lo, hi = start + i * self.window, start + (i + 1) * self.window
+            vals = [v for t, v in samples if lo <= t < hi]
+            changed = False
+            if len(vals) >= 2:
+                for ch in range(min(self.WATCH_CHANNELS, len(vals[0]))):
+                    col = [v[ch] for v in vals if ch < len(v) and math.isfinite(v[ch])]
+                    if col and max(col) - min(col) > self.CHANGE_EPS:
+                        changed = True
+                        break
+            wins.append({"from_s": round(i * self.window, 1), "values": len(vals), "changed": changed})
+        return wins
+
+    def _finish_vehicle(self, now: float, observed: bool) -> None:
+        c = self._cur
+        c.setdefault("windows", [])
+        c["sim_seen"] = sorted(c.get("sim_seen", set()))
+        c["pass"] = bool(observed and c.get("spawn_ok") and c.get("max_players", 1) == 0 and c["windows"]
+                         and all(w["values"] > 0 and w["changed"] for w in c["windows"]))
+        self.log.append(f"「{c['name']}」: " + ("物理が進み続けた" if c["pass"] else "物理が進み続けたとは言えない"))
+        self.results.append(c)
+        self.state, self._mark = "gap", now
+
+    def summary(self) -> dict:
+        return {"vehicles": self.results, "q4_pass": any(v["pass"] for v in self.results)}
+
+
+class ProcessSampler:
+    """プロセスの CPU 使用率とメモリを一定間隔で記録する（Windows では PowerShell を使う）。"""
+
+    def __init__(self, name: str, interval: float = 5.0, cores: int | None = None, query=None):
+        import os
+        self.name, self.interval = name, interval
+        self.cores = cores or os.cpu_count() or 1
+        self.query = query or self._powershell
+        self.samples: list[dict] = []
+        self._prev: tuple[float, float] | None = None
+        self._stop = threading.Event()
+
+    def _powershell(self) -> str:
+        import subprocess
+        if sys.platform != "win32":
+            return ""
+        cmd = (f"$p=Get-Process {self.name} -ErrorAction SilentlyContinue | Select-Object -First 1; "
+               "if($p){'{0} {1}' -f $p.CPU,$p.WorkingSet64}")
+        try:
+            r = subprocess.run(["powershell", "-NoProfile", "-Command", cmd],
+                               capture_output=True, text=True, timeout=10)
+            return r.stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            return ""
+
+    def sample(self, t: float | None = None) -> None:
+        t = time.monotonic() if t is None else t
+        out = self.query().replace(",", ".").split()
+        if len(out) != 2:
+            self._prev = None
+            return
+        try:
+            cpu_s, mem = float(out[0]), float(out[1])
+        except ValueError:
+            return
+        row = {"t": t, "memory_mb": round(mem / 1048576, 1), "cpu_percent": None}
+        if self._prev is not None and t > self._prev[0]:
+            row["cpu_percent"] = round((cpu_s - self._prev[1]) / (t - self._prev[0]) / self.cores * 100, 1)
+        self._prev = (t, cpu_s)
+        self.samples.append(row)
+
+    def start(self) -> None:
+        def loop():
+            while not self._stop.is_set():
+                self.sample()
+                self._stop.wait(self.interval)
+        threading.Thread(target=loop, daemon=True).start()
+
+    def stop(self) -> None:
+        self._stop.set()
+
+    def summary(self) -> dict:
+        cpus = [s["cpu_percent"] for s in self.samples if s["cpu_percent"] is not None]
+        mems = [s["memory_mb"] for s in self.samples]
+        return {"process": self.name, "available": bool(mems), "cores": self.cores,
+                "cpu_percent_avg": round(sum(cpus) / len(cpus), 1) if cpus else None,
+                "cpu_percent_max": max(cpus) if cpus else None,
+                "memory_mb_max": max(mems) if mems else None, "samples": len(self.samples)}
+
+
 def parse_spawn(path: str) -> tuple[str, tuple[float, float, float], bool]:
     q = parse_qs(urlsplit(path).query)
     try:
@@ -489,6 +667,26 @@ def report_q3(q: dict) -> str:
     return "\n".join(lines)
 
 
+def report_q4(q: dict, load: dict | None) -> str:
+    lines = ["---- 誰も接続していない専用サーバーで物理が進むかの結果 ----"]
+    for v in q["vehicles"]:
+        lines.append(f"「{v['name']}」: 置く {'できた' if v.get('spawn_ok') else 'できなかった'}、"
+                     f"その間のプレイヤー最大 {v.get('max_players', '-')}人")
+        for w in v.get("windows", []):
+            lines.append(f"  {w['from_s']:5.0f}秒〜: マイコンからの値 {w['values']}件、"
+                         + ("値が変わっている" if w["changed"] else "値が止まっている"))
+        lines.append("  → " + ("物理が進み続けた" if v["pass"] else "物理が進み続けたとは言えない"))
+    lines.append("Q4 の基準（誰も接続していない状態で60秒間、値が変わり続けて届く）: "
+                 + ("満たした" if q["q4_pass"] else "満たさなかった"))
+    if load is not None:
+        if load["available"]:
+            lines.append(f"専用サーバーの負荷: CPU 平均 {load['cpu_percent_avg']}% / 最大 {load['cpu_percent_max']}%"
+                         f"（{load['cores']}論理コアに対する割合）、メモリ最大 {load['memory_mb_max']} MB")
+        else:
+            lines.append(f"専用サーバー（{load['process']}）の負荷は測れなかった")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -496,9 +694,10 @@ def main(argv: list[str] | None = None) -> int:
         except (AttributeError, ValueError):
             pass
     ap = argparse.ArgumentParser(description="Stormworks のマイコン・アドオンと値・指示をやり取りする中継プログラム")
-    ap.add_argument("--mode", choices=("q1", "q2", "q3"), default="q1",
+    ap.add_argument("--mode", choices=("q1", "q2", "q3", "q4"), default="q1",
                     help="q1: 値が届くかを数える（既定）。q2: 指示を10回出して反映までの時間を測る。"
-                         "q3: アドオンで機体を置く・片付けるを10回くり返す")
+                         "q3: アドオンで機体を置く・片付けるを10回くり返す。"
+                         "q4: 専用サーバーで、誰も接続していなくても物理が進むかを見る")
     ap.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"待ち受けるポート（既定 {DEFAULT_PORT}）")
     ap.add_argument("--seconds", type=float, default=Q1_MIN_SECONDS,
                     help="q1: 最初の受信からこの秒数で自動で止める。0 なら止めない（既定 60）")
@@ -509,6 +708,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--offset", default="0,3,15",
                     help="q3: 置く場所。プレイヤーの位置からのずれ x,y,z（m、既定 0,3,15。y が上）")
     ap.add_argument("--absolute", action="store_true", help="q3: --offset をプレイヤーからのずれではなくワールドの座標とする")
+    ap.add_argument("--vehicles", default="claude_test,claude_test_ka",
+                    help="q4: 順に置く機体の保存名（カンマ区切り、既定 claude_test,claude_test_ka）")
+    ap.add_argument("--pos", default="-260.9,8,-18949",
+                    help="q4: 機体を置くワールドの座標 x,y,z（既定は Q1 で機体があった場所の 3m 上）")
+    ap.add_argument("--process", default="server64", help="q4: 負荷を記録するプロセス名（既定 server64）")
     ap.add_argument("--logdir", default="logs", help="記録を書くフォルダ（既定 logs）")
     args = ap.parse_args(argv)
     cmd_values = [float(x) for x in args.cmd_values.split(",")]
@@ -527,8 +731,17 @@ def main(argv: list[str] | None = None) -> int:
     com = Commander()
     ops = AddonOps()
     runner = None
+    sampler = None
     if args.mode == "q3":
         runner = Q3Runner(ops, rec, vehicle=args.vehicle, offset=offset, relative=not args.absolute)
+    elif args.mode == "q4":
+        pos = tuple(float(x) for x in args.pos.split(","))
+        if len(pos) != 3:
+            ap.error("--pos は x,y,z の3つの数")
+        vehicles = [v.strip() for v in args.vehicles.split(",") if v.strip()]
+        runner = Q4Runner(ops, rec, com, vehicles=vehicles, pos=pos, seconds=args.seconds or Q1_MIN_SECONDS)
+        sampler = ProcessSampler(args.process)
+        sampler.start()
     server = make_server("127.0.0.1", args.port, rec, com, ops)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"待ち受け中: http://127.0.0.1:{args.port}   記録: {log_path}")
@@ -538,6 +751,10 @@ def main(argv: list[str] | None = None) -> int:
     elif args.mode == "q3":
         print(f"アドオンから連絡が来たら、機体「{args.vehicle}」を置く・片付けるを{Q3_CYCLES}回くり返します。")
         print("アドオンを有効にしたワールドに入ると始まります。Ctrl+C で止めます。")
+    elif args.mode == "q4":
+        print(f"アドオンから連絡が来たら、{', '.join(runner.vehicles)} を1台ずつ置き、"
+              f"{runner.seconds:g}秒ずつ物理が進むかを見ます。")
+        print("専用サーバーを起動すると始まります。終わるまで、ゲームからサーバーに接続しないでください。Ctrl+C で止めます。")
     else:
         print("ゲームで機体を出すと受信が始まります。Ctrl+C で止めます。")
 
@@ -561,7 +778,8 @@ def main(argv: list[str] | None = None) -> int:
                     last_print = now
                     st = ops.status()
                     print(f"経過 {now - started:5.0f}秒  アドオンからの連絡 {ops.polls}回  "
-                          f"置いている機体 {st['vid']}  マイコンからの値 {rec.summary()['received']}件")
+                          f"置いている機体 {st['vid']}  プレイヤー {st['players']}人  "
+                          f"マイコンからの値 {rec.summary()['received']}件")
                 if runner.done:
                     break
                 continue
@@ -590,6 +808,8 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         print("\n止めました。")
     finally:
+        if sampler is not None:
+            sampler.stop()
         server.shutdown()
         server.server_close()
         rec.close()
@@ -602,12 +822,17 @@ def main(argv: list[str] | None = None) -> int:
     elif args.mode == "q2":
         out = {"values": s, "commands": com.summary()}
         text = report_q2(out["commands"], s)
-    else:
+    elif args.mode == "q3":
         out = {"values": s, "q3": runner.summary(), "addon_ops": ops.summary()}
         text = report_q3(out["q3"])
+    else:
+        load = sampler.summary()
+        out = {"values": s, "q4": runner.summary(), "load": load, "load_samples": sampler.samples,
+               "addon_ops": ops.summary()}
+        text = report_q4(out["q4"], load)
     summary_path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
     print(text)
-    if args.mode != "q3" and s["resent"]:
+    if args.mode in ("q1", "q2") and s["resent"]:
         print("注意: マイコンが返事を待ちきれず送り直しました。中継プログラムを機体より後に起動すると、"
               "その間の要求がゲームに溜まり、最初の数秒は返事が遅れます。")
     print(f"まとめ: {summary_path}")
