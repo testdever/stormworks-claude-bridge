@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<playlist folder_path="data/missions/ClaudeBridge" file_store="4" name="Claude Bridge">
-	<locations location_id_counter="2" component_id_counter="1">
+<playlist path_id="app_data/data/missions/ClaudeBridge" folder_path="data/missions/ClaudeBridge" file_store="4" name="Claude Bridge">
+	<locations location_id_counter="1" component_id_counter="0">
 		<locations>
-			<l id="2" name="OCEAN" env_mod_spawn_num="1">
-				<components>
-				</components>
+			<l id="1" tile="data/tiles/island12.xml" name="CLAUDE_BRIDGE" is_env_mod="false" env_mod_spawn_num="1">
+				<components/>
 			</l>
 		</locations>
 	</locations>
