@@ -1,7 +1,7 @@
 +++
 id = "D-004"
 title = "実験の場面を用意する方法（見直し）"
-status = "suspended"
+status = "proposed"
 level = "core"
 date = "2026-11-08"
 functions = ["FN1"]
@@ -15,8 +15,8 @@ supersedes = ["D-002"]
 superseded_by = ""
 blocks_future = []
 y_statement = ""
-suspended_at = "確認（別PCの1人用と、メインPCの裏のゲーム本体が同点。専用サーバーを狙うため追加で調べた）"
-pending_question = "専用サーバーを狙うか、別PCの1人用か、メインPCの裏のゲーム本体か。専用サーバーは、誰も接続していなくてもアドオン・通信・機体の出し入れが動き、キープアクティブの機体はマイコンが動き続けた。残る問いは、誰もいない間も物理が進み続けるか（持ち上げの試しが失敗し、原因は未確認）。本人の判断で保留"
+suspended_at = ""
+pending_question = ""
 
 [[option]]
 id = "A"
