@@ -1,7 +1,7 @@
 +++
 id = "D-002"
 title = "実験の場面を用意する方法"
-status = "accepted"
+status = "superseded"
 level = "core"
 date = "2026-11-08"
 functions = ["FN1"]
@@ -12,7 +12,7 @@ override_reason = "本人：「最初はメインでいいよ。addonをすべ�
 depends_on = ["D-001"]
 survey = ["docs/evidence/E-003-scene-setup-survey.md"]
 supersedes = []
-superseded_by = ""
+superseded_by = "D-004"
 blocks_future = ["なし"]
 y_statement = "Stormworks の計測実験を Claude に任せ、本人が拘束されないようにする中で、実験の場面を人の操作なしで用意するため、「メインPCの裏で専用サーバーを動かし、アドオンが機体を置く」を選び、「別PCで専用サーバーを動かし、アドオンが機体を置く」「別PCでゲーム本体を動かし、アドオンが機体を置く」は採らなかった。速いPCで計算でき別PCを点けずに済む利点の代わりに、実験中にメインPCの CPU とメモリを使うことを受け入れる。"
 suspended_at = ""
