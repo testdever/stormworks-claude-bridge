@@ -24,9 +24,9 @@ id = "Q3"
 text = "アドオンから、指示どおりに実験用の機体を置き直せるか"
 criterion = "中継プログラムからの指示で、機体の配置と片付けが10回中10回できる"
 method = "別PCで、アドオンに中継プログラムへ問い合わせさせ、配置と片付けの指示を交互に10回ずつ出して結果を数える"
-verdict = "open"
-result = ""
-evidence = []
+verdict = "pass"
+result = "置く10回中10回、片付ける10回中10回"
+evidence = ["docs/evidence/E-010-q3-addon-spawn-despawn.md"]
 note = ""
 
 [[question]]

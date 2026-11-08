@@ -12,6 +12,7 @@ claims = [
   "server.despawnVehicle(vehicle_id, is_instant) と server.despawnVehicleGroup(group_id, is_instant) で片付けられる",
   "server.getVehicleSimulating(vehicle_id) で、機体が読み込みを終えて物理が動いているかが分かる",
   "onVehicleSpawn の説明に「スクリプトが出した機体も、プレイヤーの近くで読み込まれないと物理が動き始めない」とある",
+  "アドオンが機体の値を読むには、名前か位置を指定したダイヤル・ボタン・座席を経由する（server.getVehicleDial / getVehicleButton / getVehicleSeat）。センサーの出力をそのまま読む関数はない",
   "onCreate(is_world_create)、onTick(game_ticks)、server.getPlayers()、server.getPlayerPos(peer_id)、matrix.translation(x,y,z)、matrix.position(m)、server.announce(name, message)",
 ]
 +++

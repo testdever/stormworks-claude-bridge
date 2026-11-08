@@ -18,10 +18,6 @@ y_statement = "Stormworks の計測実験を Claude に任せ、本人が拘束�
 suspended_at = ""
 pending_question = ""
 
-[trial]
-check = "別PCで小さな試作を作り、マイコンから値が届くか、返事の指示で機体が動くか、アドオンから機体を置き直せるかを確かめる"
-revisit_if = "マイコンから値が届かない、または返事の指示が機体に反映されないならマイコンを使う部分を、アドオンから機体を置き直せないならアドオンを使う部分を見直す"
-questions = ["Q1", "Q2", "Q3"]
 
 [[option]]
 id = "A"
@@ -155,9 +151,9 @@ note = ""
 option = "H"
 criterion = "M2"
 value = "pass"
-grade = "third_party"
-source = "docs/evidence/E-001-game-data-survey.md"
-note = ""
+grade = "measured"
+source = "docs/evidence/E-010-q3-addon-spawn-despawn.md"
+note = "Q1〜Q3 で、値も指示も中継プログラム経由の数値でやり取りし、Claude は映像もマウス・キー操作も使わなかった"
 
 [[cell]]
 option = "D"
@@ -203,9 +199,9 @@ note = "値を送る点は A と同じで、ゲームへの指示は別の手段
 option = "B"
 criterion = "W2"
 value = "+"
-grade = "inference"
-source = ""
-note = "マイコンは配線した値をそのまま読める。アドオンは名前付きのダイヤルやボタン経由でしか機体の値を読めず、値ごとに機体側の準備が要る"
+grade = "measured"
+source = "docs/evidence/E-005-q1-values-arrive.md"
+note = "Q1 で、物理センサーをマイコンにつなぐだけで32チャンネルすべてが届いた。アドオンだけでは、ダイヤルなどを経由しないと機体の値を読めない（E-009）"
 
 [[cell]]
 option = "B"
@@ -243,17 +239,17 @@ note = "送る値は A と同じ"
 option = "H"
 criterion = "W1"
 value = "+"
-grade = "inference"
-source = ""
-note = "アドオンで機体の配置やリセット、マイコンで機体への入力ができ、実験を一通り人の手なしで回せる"
+grade = "measured"
+source = "docs/evidence/E-010-q3-addon-spawn-despawn.md"
+note = "Q3 で、アドオンが機体を置き・片付け、置いた機体のマイコンから値が届く流れが、本人の手なしで10回回った。Q2（E-007・E-008）で、マイコンへの指示も届いた"
 
 [[cell]]
 option = "H"
 criterion = "W2"
 value = "+"
-grade = "inference"
-source = ""
-note = "センサーの値はマイコンで直接読めるので、確認実験は機体にマイコンを1つ足すだけで済む"
+grade = "measured"
+source = "docs/evidence/E-005-q1-values-arrive.md"
+note = "Q1 で、物理センサーをマイコンにつなぐだけで32チャンネルすべてが届いた。アドオンだけでは、ダイヤルなどを経由しないと機体の値を読めない（E-009）"
 
 [[cell]]
 option = "H"
@@ -394,3 +390,5 @@ Stormworks の計測実験を Claude に任せ、本人が拘束されないよ�
 選んだ理由（本人）：「大事なのは拘束されないことだから」。評価の多くは調べた情報からの推論なので、別PCでの試作で Q1〜Q3 を確かめる。
 
 2026-11-08 見直し：企画書に「実験中に想定外のことが起きたら気づける」（W4）が加わったので比べ直した。H はセンサーの値と機体の位置や有無の両方を見られるので W4 でも有利で、結論は変わらない。
+
+2026-11-08 試作の結果：Q1（マイコンから値が届く）、Q2（返事の指示で機体が動く）、Q3（アドオンで機体を置く・片付ける）がすべて合格した（E-005・E-007・E-008・E-010）。H の M2・W1・W2 と B の W2 を実測に置き換えて比べ直し、結論は変わらなかったので、作りながら確かめる扱いを外した。Q2 の試作で、マイコンが古い要求への返事を最新の返事として扱うと、溜まった要求のぶん返事が遅れ続けることが分かり、最新の要求への返事以外を無視するように直した。
