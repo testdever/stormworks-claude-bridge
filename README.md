@@ -138,6 +138,7 @@ Claude に Stormworks の計測実験を任せるための仕組み。企画書�
 
    サーバーは、受け付けないアドオンの行を消して保存し直す。起動して閉じたあとにこの行が残っていれば、受け付けられている。
    （`rom/data/missions/ClaudeBridge` や `ClaudeBridge` の書き方、ゲーム本体のフォルダに置く形では、行が消されて読み込まれなかった）
+   受け付けられた設定の例は `docs/examples/server_config.xml`。
 6. **専用サーバーのワールドを作り直す。** アドオンはワールドを作るときに決まり、あとから足せない。
    `%APPDATA%\Stormworks\saves\autosave_server` があれば、名前を変えて（例：`autosave_server_old`）よけておく。
    次に `server64.exe` を起動したとき、ClaudeBridge 入りの新しいワールドが作られる。

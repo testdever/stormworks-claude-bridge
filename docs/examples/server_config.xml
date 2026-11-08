@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<server_data port="25564" name="Stormworks-Server" seed="29649" save_name="autosave_server" max_players="32" password="" day_length="30" night_length="30" infinite_resources="false" unlock_all_islands="false" settings_menu="false" base_island="data/tiles/island12.xml" settings_menu_lock="false" infinite_batteries="false" infinite_fuel="false" engine_overheating="false" ceasefire="false" infinite_ammo="false" no_clip="false" map_teleport="false" vehicle_spawn="false" photo_mode="false" respawning="false" cleanup_vehicle="false" clear_fow="false" third_person="true" third_person_vehicle="true" vehicle_damage="false" player_damage="false" npc_damage="false" aggressive_animals="false" sea_monsters="false" lightning="true" teleport_vehicle="true" fast_travel="true" starting_currency="20000" despawn_on_leave="false" map_show_players="false" map_show_vehicles="false" show_3d_waypoints="false" show_name_plates="false" override_weather="false" override_time="false" override_wind="false" physics_timestep="0" wildlife_enabled="true" unlock_components="true" component_mods="true" dlc_weapons="false" dlc_arid="false" dlc_space="false">
+	<admins/>
+	<authorized/>
+	<blacklist/>
+	<whitelist/>
+	<playlists>
+		<path path="app_data/data/missions/ClaudeBridge"/>
+	</playlists>
+	<mods/>
+</server_data>
+
