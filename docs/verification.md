@@ -44,9 +44,9 @@ id = "Q5"
 text = "メインPCの裏で専用サーバーを動かしても、本人の作業が重くならないか"
 criterion = "実験を1回回す間、本人がメインPCで普段の作業をしていて重さを感じない"
 method = "ほかのアドオンをすべて切った専用サーバーをメインPCの裏で動かし、1回の実験を回す。その間に本人が普段の作業をして、重さを感じたかを答える。専用サーバーの CPU 使用率とメモリ使用量も記録する"
-verdict = "open"
-result = ""
-evidence = []
+verdict = "pass"
+result = "本人は重さを感じなかった（専用サーバーの CPU 平均1.6%・最大5.7%、メモリ最大1365MB）"
+evidence = ["docs/evidence/E-013-q5-main-pc-load.md"]
 note = ""
 
 [[question]]
