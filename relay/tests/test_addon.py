@@ -180,6 +180,8 @@ class AddonLuaTest(unittest.TestCase):
             "translation": lambda x, y, z: self.lua.table_from({"x": x, "y": y, "z": z}),
             "position": lambda m: (m["x"], m["y"], m["z"]),
         })
+        self.logs: list[str] = []
+        g.debug = self.lua.table_from({"log": lambda m: self.logs.append(str(m))})
         self.lua.execute(ADDON.read_text(encoding="utf-8"))
         g.PORT = self.port
 
@@ -211,6 +213,14 @@ class AddonLuaTest(unittest.TestCase):
         self.tick(6)
         self.assertTrue(self.ops.get(b)["ok"])
         self.assertEqual(self.api.vehicles, {})
+
+    def test_debug_log_shows_ticks_and_replies(self):
+        self.lua.globals().onCreate(True)
+        self.tick(330)
+        self.assertTrue(any("onCreate world_create=true" in m for m in self.logs))
+        self.assertTrue(any(m.startswith("[ClaudeBridge] tick=1 ") for m in self.logs))
+        self.assertTrue(any("reply 1: ok" in m for m in self.logs))
+        self.assertLess(len(self.logs), 10)  # 出しすぎない
 
     def test_absolute_position(self):
         self.tick(3)

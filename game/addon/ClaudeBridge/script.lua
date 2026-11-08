@@ -11,9 +11,21 @@ ack=0
 res=1
 vid=-1
 gid=-1
+replyN=0
+
+function log(msg)
+	debug.log("[ClaudeBridge] "..msg)
+end
+
+function onCreate(is_world_create)
+	log("onCreate world_create="..tostring(is_world_create))
+end
 
 function onTick(game_ticks)
 	t=t+1
+	if t%320==1 then
+		log("tick="..t.." seq="..seq.." ack="..ack.." replies="..replyN.." waiting="..tostring(waitT>=0).." players="..playerCount())
+	end
 	if waitT>=0 and t-waitT<TIMEOUT then return end
 	seq=seq+1
 	waitT=t
@@ -22,6 +34,10 @@ end
 
 function httpReply(port,request,reply)
 	if port~=PORT then return end
+	replyN=replyN+1
+	if replyN<=3 or string.sub(reply,1,2)~="ok" then
+		log("reply "..replyN..": "..string.sub(reply,1,80))
+	end
 	local s=tonumber(string.match(request,"s=(%d+)"))
 	if s and s~=seq then return end
 	waitT=-1

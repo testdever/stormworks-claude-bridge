@@ -164,6 +164,16 @@ Claude に Stormworks の計測実験を任せるための仕組み。企画書�
 - **中継プログラムが「アドオンからの連絡」を待ったまま始まらない：** アドオンが読み込まれていない。
   専用サーバーを止めて `server_config.xml` を開き、`<playlists>` の中の行が消えていないか見る。
   消えていたら、置き場所（手順4）と名前を確かめ、手順5・6をやり直す。
+- **アドオンが動いているかを外から見る：** アドオンは Windows のデバッグ出力に、動いている様子を書き出す。
+  Microsoft の無料の道具 DebugView（https://learn.microsoft.com/sysinternals/downloads/debugview ）で見られる。
+  1. DebugView を入れて `Dbgview64.exe` を起動する（「Capture」メニューの「Capture Win32」に印が付いていること）。
+     「Edit」→「Filter/Highlight」の Include に `*ClaudeBridge*` と入れると、関係する行だけになる。
+  2. 中継プログラムと `server64.exe` を起動して、30秒ほど様子を見る。
+  3. 見え方で、どこで止まっているかが分かる。
+     - 何も出ない：アドオンが読み込まれていないか、スクリプトが動いていない。
+     - `onCreate` だけ出て `tick=` が出ない：誰も接続していないと、アドオンの毎 tick の処理が呼ばれない。
+     - `tick=` は出るが `replies=0` のまま：アドオンは要求を出しているが、返事が来ない（専用サーバーの通信が届いていない）。
+     - `reply 1: connect…` のような行：中継プログラムにつながっていない（ポートの違いなど）。
 - **「置く → できなかった」：** 専用サーバーから機体の保存が見えていない。
   `%APPDATA%\Stormworks\data\vehicles\` に `claude_test.xml` と `claude_test_ka.xml` があるか確かめて、Claude に伝える。
 - **機体を置く場所：** 既定は Q1 で機体があった場所の 3m 上（ワールドの座標 -260.9, 8, -18949）。
