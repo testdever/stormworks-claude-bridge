@@ -19,6 +19,8 @@ class Sim:
         self.rec = relay.Recorder(expected_values=32)
         self.physics, self.stop_after, self.players = physics, stop_after, players
         self.vid, self.name, self.spawned_t, self.seq = -1, None, None, 0
+        self.lifted_t = None
+        self.lifts = 0
 
     def runner(self, vehicles, seconds=6.0):
         return relay.Q4Runner(self.ops, self.rec, self.com, vehicles=vehicles, pos=(-260.9, 8.0, -18949.0),
@@ -35,7 +37,11 @@ class Sim:
                 if p["op"] == "spawn":
                     self.vid += 2
                     self.name, self.spawned_t, self.seq = p["args"][0], t, 0
+                    self.lifted_t = t
                     self.ops.on_poll(ack=p["id"], ok=True, vid=self.vid, sim=1, players=self.players, t=t)
+                elif p["op"] == "lift":
+                    self.lifted_t, self.lifts = t, self.lifts + 1
+                    self.ops.on_poll(ack=p["id"], ok=self.name is not None, vid=self.vid, sim=1, players=self.players, t=t)
                 else:
                     self.name = None
                     self.ops.on_poll(ack=p["id"], ok=True, vid=-1, sim=-1, players=self.players, t=t)
@@ -43,9 +49,10 @@ class Sim:
                 alive = self.stop_after is None or t - self.spawned_t < self.stop_after
                 if alive:
                     self.seq += 1
-                    moving = self.physics(self.name)
+                    # 物理が進んでいても、持ち上げてから2秒で落ちきって止まる（休んでいる機体）
+                    moving = self.physics(self.name) and t - self.lifted_t < 2.0
                     v = [0.0] * 32
-                    v[16] = (t * 1.25) % 1 if moving else 0.0  # 方位（ch17）
+                    v[7] = -(t - self.lifted_t) * 9.8 if moving else 0.0  # 縦の速度（ch8）
                     self.rec.add(seq=self.seq, tick=self.seq * 3, values=v, t=t)
         return r
 
@@ -88,6 +95,19 @@ class Q4RunnerTest(unittest.TestCase):
         self.assertEqual([v["name"] for v in q["vehicles"]], ["plain", "with_keep_active"])
         self.assertEqual([v["pass"] for v in q["vehicles"]], [False, True])
         self.assertTrue(q["q4_pass"])  # どちらか1台で物理が進めば、誰も接続しない形は使える
+
+    def test_resting_vehicle_without_lift_fails(self):
+        sim = Sim()
+        r = sim.runner(["a"])
+        r.lift = 0  # 持ち上げないと、落ちきったあとは止まって見える
+        q = sim.run(r).summary()
+        self.assertFalse(q["vehicles"][0]["pass"])
+
+    def test_lift_each_window(self):
+        sim = Sim()
+        q = sim.run(sim.runner(["a"])).summary()
+        self.assertEqual(sim.lifts, 3)
+        self.assertEqual(q["vehicles"][0]["lifts"], [True, True, True])
 
     def test_spin_command_issued_per_vehicle(self):
         sim = Sim()

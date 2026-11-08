@@ -139,6 +139,8 @@ class FakeServerApi:
         self.next_id = 100
         self.announces: list[str] = []
         self.spawned_at: list[tuple] = []
+        self.moved_to: list[tuple] = []
+        self.players = [{"id": 0, "name": "p", "steam_id": "76561198000000000"}]
 
     def table(self):
         L = self.lua
@@ -148,7 +150,9 @@ class FakeServerApi:
             "despawnVehicleGroup": lambda gid, inst: self._despawn(gid - 1000),
             "despawnVehicle": lambda vid, inst: self._despawn(vid),
             "getVehicleSimulating": lambda vid: (vid in self.vehicles, True),
-            "getPlayers": lambda: L.table_from({1: L.table_from({"id": 0, "name": "p"})}),
+            "getPlayers": lambda: L.table_from({i + 1: L.table_from(p) for i, p in enumerate(self.players)}),
+            "getVehiclePos": lambda vid: (L.table_from({"x": 1.0, "y": 2.0, "z": 3.0}), vid in self.vehicles),
+            "setVehiclePos": lambda vid, m: (self.moved_to.append((vid, m["x"], m["y"], m["z"])) or vid in self.vehicles),
             "getPlayerPos": lambda pid: (L.table_from({"x": 10.0, "y": 2.0, "z": -5.0}), True),
             "announce": lambda name, msg: self.announces.append(str(msg)),
         })
@@ -221,6 +225,29 @@ class AddonLuaTest(unittest.TestCase):
         self.assertTrue(any(m.startswith("[ClaudeBridge] tick=1 ") for m in self.logs))
         self.assertTrue(any("reply 1: ok" in m for m in self.logs))
         self.assertLess(len(self.logs), 10)  # 出しすぎない
+
+    def test_lift_moves_vehicle_up(self):
+        self.tick(3)
+        self.ops.spawn("boat", (0, 0, 0), relative=False)
+        self.tick(6)
+        a = self.ops.lift(15)
+        self.tick(6)
+        self.assertTrue(self.ops.get(a)["ok"])
+        self.assertEqual(self.api.moved_to[-1][1:], (1.0, 17.0, 3.0))
+
+    def test_lift_without_vehicle_fails(self):
+        self.tick(3)
+        a = self.ops.lift(15)
+        self.tick(6)
+        self.assertFalse(self.ops.get(a)["ok"])
+
+    def test_dedicated_server_itself_is_not_counted(self):
+        self.api.players = [{"id": 0, "name": "Server", "steam_id": "0"}]
+        self.tick(5)
+        self.assertEqual(self.ops.status()["players"], 0)
+        a = self.ops.spawn("boat", (0, 3, 15), relative=True)  # プレイヤーがいないので相対位置は使えない
+        self.tick(6)
+        self.assertFalse(self.ops.get(a)["ok"])
 
     def test_absolute_position(self):
         self.tick(3)

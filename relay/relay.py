@@ -250,6 +250,10 @@ class AddonOps:
     def despawn(self, t: float | None = None) -> int:
         return self._issue("despawn", [], t)
 
+    def lift(self, dy: float = 15.0, t: float | None = None) -> int:
+        """置いている機体を dy メートル持ち上げる（物理が進んでいれば、そこから落ちる）。"""
+        return self._issue("lift", [format_value(float(dy))], t)
+
     def pending(self) -> dict | None:
         with self._lock:
             for o in self._ops:
@@ -364,7 +368,9 @@ class Q3Runner:
 class Q4Runner:
     """機体を1台ずつ決まった場所に置き、出力1で回し、seconds 秒のあいだ物理が進み続けるかを見る。
 
-    window 秒ごとの区切りで、マイコンから値が届いているか・値が変わっているかを調べる。
+    window 秒ごとの区切りの始めに機体を lift メートル持ち上げ、物理が進んでいれば落ちて値が変わるようにする
+    （止まって休んでいる機体と、物理が止まった機体を見分けるため）。
+    各区切りで、マイコンから値が届いているか・値が変わっているかを調べる。
     どの区切りも届いていて変わっていて、その間プレイヤーが0人なら、その機体は合格。
     """
 
@@ -373,8 +379,10 @@ class Q4Runner:
 
     def __init__(self, ops: AddonOps, recorder: Recorder, commander: Commander, vehicles: list[str],
                  pos: tuple[float, float, float], seconds: float = 60.0, window: float = 10.0,
-                 gap: float = 5.0, timeout: float = 10.0):
+                 gap: float = 5.0, timeout: float = 10.0, lift: float = 15.0):
         self.ops, self.recorder, self.commander = ops, recorder, commander
+        self.lift = lift
+        self._lifts_done = 0
         self.vehicles, self.pos = list(vehicles), pos
         self.seconds, self.window, self.gap, self.timeout = seconds, window, gap, timeout
         self.state, self.done = "start", False
@@ -410,6 +418,8 @@ class Q4Runner:
                     self._mark = now
                     self._cur["max_players"] = self.ops.status()["players"]
                     self._cur["sim_seen"] = set()
+                    self._cur["lifts"] = []
+                    self._lifts_done = 0
                     self.log.append(f"{self.seconds:g}秒間、物理が進むかを見ます（誰も接続しないでください）")
                 else:
                     self._finish_vehicle(now, observed=False)
@@ -417,6 +427,10 @@ class Q4Runner:
             st = self.ops.status()
             self._cur["max_players"] = max(self._cur["max_players"], st["players"])
             self._cur["sim_seen"].add(st["sim"])
+            n_windows = max(1, int(round(self.seconds / self.window)))
+            if self.lift and self._lifts_done < n_windows and now >= self._mark + self._lifts_done * self.window + 0.5:
+                self._cur["lifts"].append(self.ops.lift(self.lift, t=now))
+                self._lifts_done += 1
             if now - self._mark >= self.seconds:
                 with self._lock:
                     self.state = "despawning"
@@ -460,6 +474,7 @@ class Q4Runner:
 
     def _finish_vehicle(self, now: float, observed: bool) -> None:
         c = self._cur
+        c["lifts"] = [bool(self.ops.get(i)["ok"]) for i in c.get("lifts", [])]
         c.setdefault("windows", [])
         c["sim_seen"] = sorted(c.get("sim_seen", set()))
         c["pass"] = bool(observed and c.get("spawn_ok") and c.get("max_players", 1) == 0 and c["windows"]
@@ -670,8 +685,10 @@ def report_q3(q: dict) -> str:
 def report_q4(q: dict, load: dict | None) -> str:
     lines = ["---- 誰も接続していない専用サーバーで物理が進むかの結果 ----"]
     for v in q["vehicles"]:
+        lifts = v.get("lifts", [])
         lines.append(f"「{v['name']}」: 置く {'できた' if v.get('spawn_ok') else 'できなかった'}、"
-                     f"その間のプレイヤー最大 {v.get('max_players', '-')}人")
+                     f"その間のプレイヤー最大 {v.get('max_players', '-')}人、"
+                     f"持ち上げ {sum(lifts)}/{len(lifts)}回成功")
         for w in v.get("windows", []):
             lines.append(f"  {w['from_s']:5.0f}秒〜: マイコンからの値 {w['values']}件、"
                          + ("値が変わっている" if w["changed"] else "値が止まっている"))

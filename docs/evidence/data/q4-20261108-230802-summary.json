@@ -1,0 +1,292 @@
+{
+  "values": {
+    "received": 1215,
+    "malformed": 0,
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 59.317,
+    "full_seconds": 59,
+    "min_per_sec": 20,
+    "max_per_sec": 21,
+    "avg_per_sec": 20.47,
+    "q1_pass": false
+  },
+  "q4": {
+    "vehicles": [
+      {
+        "name": "claude_test",
+        "spawn_ok": true,
+        "max_players": 1,
+        "sim_seen": [
+          0
+        ],
+        "windows": [
+          {
+            "from_s": 0.0,
+            "values": 0,
+            "changed": false
+          },
+          {
+            "from_s": 10.0,
+            "values": 0,
+            "changed": false
+          },
+          {
+            "from_s": 20.0,
+            "values": 0,
+            "changed": false
+          },
+          {
+            "from_s": 30.0,
+            "values": 0,
+            "changed": false
+          },
+          {
+            "from_s": 40.0,
+            "values": 0,
+            "changed": false
+          },
+          {
+            "from_s": 50.0,
+            "values": 0,
+            "changed": false
+          }
+        ],
+        "despawn_ok": true,
+        "pass": false
+      },
+      {
+        "name": "claude_test_ka",
+        "spawn_ok": true,
+        "max_players": 1,
+        "sim_seen": [
+          0,
+          1
+        ],
+        "windows": [
+          {
+            "from_s": 0.0,
+            "values": 189,
+            "changed": true
+          },
+          {
+            "from_s": 10.0,
+            "values": 206,
+            "changed": true
+          },
+          {
+            "from_s": 20.0,
+            "values": 204,
+            "changed": true
+          },
+          {
+            "from_s": 30.0,
+            "values": 205,
+            "changed": false
+          },
+          {
+            "from_s": 40.0,
+            "values": 204,
+            "changed": false
+          },
+          {
+            "from_s": 50.0,
+            "values": 204,
+            "changed": false
+          }
+        ],
+        "despawn_ok": true,
+        "pass": false
+      }
+    ],
+    "q4_pass": false
+  },
+  "load": {
+    "process": "server64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": 1.4,
+    "cpu_percent_max": 2.1,
+    "memory_mb_max": 1362.6,
+    "samples": 25
+  },
+  "load_samples": [
+    {
+      "t": 39482.7415735,
+      "memory_mb": 1319.8,
+      "cpu_percent": null
+    },
+    {
+      "t": 39488.0218851,
+      "memory_mb": 1361.9,
+      "cpu_percent": 2.1
+    },
+    {
+      "t": 39493.3163861,
+      "memory_mb": 1361.9,
+      "cpu_percent": 0.8
+    },
+    {
+      "t": 39498.6032754,
+      "memory_mb": 1361.9,
+      "cpu_percent": 1.2
+    },
+    {
+      "t": 39503.9031804,
+      "memory_mb": 1361.9,
+      "cpu_percent": 1.4
+    },
+    {
+      "t": 39509.183864,
+      "memory_mb": 1362.0,
+      "cpu_percent": 1.5
+    },
+    {
+      "t": 39514.4532245,
+      "memory_mb": 1362.0,
+      "cpu_percent": 0.8
+    },
+    {
+      "t": 39519.7476257,
+      "memory_mb": 1362.0,
+      "cpu_percent": 1.1
+    },
+    {
+      "t": 39525.0131641,
+      "memory_mb": 1362.0,
+      "cpu_percent": 1.2
+    },
+    {
+      "t": 39530.2860607,
+      "memory_mb": 1362.0,
+      "cpu_percent": 1.1
+    },
+    {
+      "t": 39535.5891881,
+      "memory_mb": 1362.0,
+      "cpu_percent": 1.3
+    },
+    {
+      "t": 39540.8834359,
+      "memory_mb": 1361.9,
+      "cpu_percent": 1.4
+    },
+    {
+      "t": 39546.1609661,
+      "memory_mb": 1361.9,
+      "cpu_percent": 1.2
+    },
+    {
+      "t": 39551.4275225,
+      "memory_mb": 1362.5,
+      "cpu_percent": 1.5
+    },
+    {
+      "t": 39556.7095332,
+      "memory_mb": 1362.5,
+      "cpu_percent": 1.7
+    },
+    {
+      "t": 39561.979335,
+      "memory_mb": 1362.6,
+      "cpu_percent": 1.8
+    },
+    {
+      "t": 39567.2490169,
+      "memory_mb": 1362.6,
+      "cpu_percent": 1.7
+    },
+    {
+      "t": 39572.515451,
+      "memory_mb": 1362.6,
+      "cpu_percent": 1.7
+    },
+    {
+      "t": 39577.7911568,
+      "memory_mb": 1362.6,
+      "cpu_percent": 1.3
+    },
+    {
+      "t": 39583.0686087,
+      "memory_mb": 1362.6,
+      "cpu_percent": 1.7
+    },
+    {
+      "t": 39588.3358947,
+      "memory_mb": 1362.6,
+      "cpu_percent": 1.9
+    },
+    {
+      "t": 39593.6081151,
+      "memory_mb": 1362.6,
+      "cpu_percent": 1.5
+    },
+    {
+      "t": 39598.8900433,
+      "memory_mb": 1362.6,
+      "cpu_percent": 1.9
+    },
+    {
+      "t": 39604.1614885,
+      "memory_mb": 1362.6,
+      "cpu_percent": 1.7
+    },
+    {
+      "t": 39609.4483346,
+      "memory_mb": 1362.6,
+      "cpu_percent": 1.2
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 1,
+        "op": "spawn",
+        "args": [
+          "claude_test",
+          "-260.9",
+          "8",
+          "-18949",
+          "0"
+        ],
+        "ok": true,
+        "vid": 1,
+        "latency_s": 0.125
+      },
+      {
+        "id": 2,
+        "op": "despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.078
+      },
+      {
+        "id": 3,
+        "op": "spawn",
+        "args": [
+          "claude_test_ka",
+          "-260.9",
+          "8",
+          "-18949",
+          "0"
+        ],
+        "ok": true,
+        "vid": 2,
+        "latency_s": 0.092
+      },
+      {
+        "id": 4,
+        "op": "despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.081
+      }
+    ],
+    "polls": 2706
+  }
+}
