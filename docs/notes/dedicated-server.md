@@ -93,6 +93,14 @@
 
 ---
 
+## 8. 画面の数で読み込みを見分ける試み
+
+- 標準のミッション1つ（`rom/data/missions/default_landmarks`）だけを入れると、行は残り、objects が 0/3287 になった。
+- 同じミッションを `%APPDATA%\Stormworks\data\missions\TestLandmarks` にコピーし、`app_data/data/missions/TestLandmarks` と書いても、同じ結果だった。
+- ところが、`<playlists>` を空にしてワールドを消して起動しても、同じ結果だった。
+- objects の数は、アドオンを入れていないはずの回でも 2202、2743 とばらついていた。**objects の数では、アドオンが読み込まれたかを見分けられない。**
+- そこで、何も入れていないと 0/0 になる vehicles の数を使う。確かめ専用のアドオン ClaudeProbe（`game/addon/ClaudeProbe`）は、最初の tick に通信を使わず `claude_test` を1台だけ置く。スクリプトが動けば vehicles が 0/0 でなくなる。
+
 ## 分かっていないこと
 
 アドオンからの連絡がない理由として、次の3つが残っている。
