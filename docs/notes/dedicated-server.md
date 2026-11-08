@@ -119,13 +119,23 @@
 - そこで `game/addon/probes` に、`rom` に置く形を2通り用意した（ProbeRom3：`file_store="3"`・機体1台、ProbeRom4：`path_id="rom/…"`・`file_store="4"`・機体2台）。
   両方を同時に入れ、vehicles の合計（0／1／2／3）でどちらが読み込まれたかを見分ける。機体のファイルは SWAsteroidsAddon（Apache 2.0）のものを使った。
 
+## 10. 結果：rom に置く形なら読み込まれた
+
+- ProbeRom3 と ProbeRom4 を `Stormworks\rom\data\missions\` に置き、`rom/data/missions/ProbeRom3`・`rom/data/missions/ProbeRom4` と書いて、ワールドを消して起動した。
+- サーバー画面は **vehicles 0/3**（誰も接続していない）。両方とも読み込まれ、最初から置く機体が合計3台、動いていない状態で存在した。
+- **専用サーバーにアドオンを入れる形は、`rom\data\missions\<名前>` に置き、`rom/data/missions/<名前>` と書く。**
+  `file_store` は 3 でも 4 でもよかった。`%APPDATA%` に置いて `app_data/…` と書く形は読み込まれなかった。
+- 最初（3 章の #1）に rom に置いて行が消えたのは、そのときの playlist.xml が古い形だったためかもしれない（確かめていない）。
+- 専用サーバー用の ClaudeBridge は `game/addon/server/ClaudeBridge`（playlist.xml を ProbeRom3 と同じ形にしたもの）。
+
 ## 分かっていないこと
 
 アドオンからの連絡がない理由として、次の3つが残っている。
 
-1. **アドオンが読み込まれていない。** #4 で行が残ったことは、読み込みに成功した証拠にはならない。#1〜#3 の書き方のどれかが正しかった可能性も残る。
-2. **読み込まれているが、プレイヤーが一度も接続しないと動き出さない。**
-3. **動いているが、外に何も出ていない。** 専用サーバー（`server64.exe`）の `debug.log` が DebugView に出るかと、通信が外に出るかは、確かめていない。
+1. ~~アドオンが読み込まれていない~~ → `app_data/…` の形では読み込まれていなかった。rom に置く形で解決（10 章）。
+2. **読み込まれたスクリプトが、誰も接続していなくても動くか。**
+3. **専用サーバーから、スクリプトの通信が外に出るか。** また、`debug.log` が DebugView に出るか。
+4. **専用サーバーから、`%APPDATA%\Stormworks\data\vehicles` に保存した機体を `server.spawnVehicle` で置けるか。**
 
 ほかに、設定の `port`（25564）と画面の表示（25565）の食い違いも、理由は分かっていない。
 
