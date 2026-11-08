@@ -26,7 +26,7 @@ SCRIPT = Path(__file__).resolve().parents[2] / "game" / "q1_send_values.lua"
 class FakeVehicle:
     """Stormworks のマイコンの代わり。httpGet の返事は次の tick で httpReply に渡す。"""
 
-    def __init__(self, port: int, reply: bool = True):
+    def __init__(self, port: int, reply: bool = True, script: Path = SCRIPT):
         self.lua = lupa.LuaRuntime(unpack_returned_tuples=True)
         self.port = port
         self.reply = reply
@@ -37,7 +37,7 @@ class FakeVehicle:
         g.input = self.lua.table_from({"getNumber": lambda i: i * 1.5 - 7})
         g.output = self.lua.table_from({"setNumber": self._set_number})
         g["async"] = self.lua.table_from({"httpGet": self._http_get})
-        self.lua.execute(SCRIPT.read_text(encoding="utf-8"))
+        self.lua.execute(script.read_text(encoding="utf-8"))
         g.PORT = port
 
     def _set_number(self, ch, v):
