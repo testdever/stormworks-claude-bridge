@@ -39,6 +39,7 @@ Q1_MIN_PER_SEC = 10
 Q2_COMMANDS = 10
 Q2_MAX_LATENCY = 2.0
 Q2_INTERVAL = 3.0
+Q3_CYCLES = 10
 VALUE_PATHS = ("/v", "/q1")
 RESEND_TICKS = 60  # マイコンの Lua が返事を待つ tick 数。これ以上空いた次の要求は送り直し
 
@@ -216,23 +217,194 @@ class Commander:
                             and max(lats) <= Q2_MAX_LATENCY)}
 
 
-def make_server(host: str, port: int, recorder: Recorder, commander: Commander | None = None) -> ThreadingHTTPServer:
+class AddonOps:
+    """アドオンへの指示（機体を置く・片付ける）。古いものから順に1件ずつ渡し、結果を受け取る。"""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._ops: list[dict] = []  # {id, op, args, issued_t, done_t, ok, vid}
+        self._status = {"vid": -1, "sim": -1, "players": 0, "t": None}
+        self.polls = 0
+
+    def _issue(self, op: str, args: list[str], t: float | None) -> int:
+        t = time.monotonic() if t is None else t
+        with self._lock:
+            oid = len(self._ops) + 1
+            self._ops.append({"id": oid, "op": op, "args": args, "issued_t": t,
+                              "done_t": None, "ok": None, "vid": None})
+            return oid
+
+    def spawn(self, name: str, pos: tuple[float, float, float], relative: bool, t: float | None = None) -> int:
+        if not name or any(c in name for c in "|\r\n"):
+            raise ValueError("機体の名前が空か、使えない文字（| や改行）を含む")
+        args = [name, *(format_value(float(v)) for v in pos), "1" if relative else "0"]
+        return self._issue("spawn", args, t)
+
+    def despawn(self, t: float | None = None) -> int:
+        return self._issue("despawn", [], t)
+
+    def pending(self) -> dict | None:
+        with self._lock:
+            for o in self._ops:
+                if o["done_t"] is None:
+                    return dict(o)
+        return None
+
+    def reply_body(self) -> str:
+        o = self.pending()
+        if o is None:
+            return "ok"
+        return "|".join(["ok", str(o["id"]), o["op"], *o["args"]])
+
+    def on_poll(self, ack: int, ok: bool, vid: int, sim: int, players: int, t: float | None = None) -> None:
+        t = time.monotonic() if t is None else t
+        with self._lock:
+            self.polls += 1
+            self._status = {"vid": vid, "sim": sim, "players": players, "t": t}
+            for o in self._ops:
+                if o["id"] <= ack and o["done_t"] is None:
+                    o["done_t"] = t
+                    if o["id"] == ack:
+                        o["ok"] = ok
+                        o["vid"] = vid
+
+    def get(self, oid: int) -> dict:
+        with self._lock:
+            return dict(self._ops[oid - 1])
+
+    def status(self) -> dict:
+        with self._lock:
+            return dict(self._status)
+
+    def summary(self) -> dict:
+        with self._lock:
+            ops = [dict(o) for o in self._ops]
+        rows = [{"id": o["id"], "op": o["op"], "args": o["args"], "ok": o["ok"], "vid": o["vid"],
+                 "latency_s": None if o["done_t"] is None else round(o["done_t"] - o["issued_t"], 3)}
+                for o in ops]
+        return {"ops": rows, "polls": self.polls}
+
+
+class Q3Runner:
+    """機体を置く → hold 秒待つ → 片付ける → gap 秒待つ、を cycles 回くり返す。step(now) を呼び続けて進める。"""
+
+    def __init__(self, ops: AddonOps, recorder: Recorder, vehicle: str, offset: tuple[float, float, float],
+                 relative: bool = True, cycles: int = 10, hold: float = 3.0, gap: float = 2.0, timeout: float = 10.0):
+        self.ops, self.recorder = ops, recorder
+        self.vehicle, self.offset, self.relative = vehicle, offset, relative
+        self.cycles, self.hold, self.gap, self.timeout = cycles, hold, gap, timeout
+        self.results: list[dict] = []
+        self.state = "start"
+        self.done = False
+        self._cur: dict = {}
+        self._op = 0
+        self._mark = 0.0
+        self.log: list[str] = []
+
+    def step(self, now: float) -> None:
+        if self.done:
+            return
+        if self.state == "start":
+            if self.ops.polls == 0:
+                return
+            self._begin_cycle(now)
+        elif self.state == "spawning":
+            o = self.ops.get(self._op)
+            if o["done_t"] is not None or now - self._mark >= self.timeout:
+                self._cur["spawn_ok"] = bool(o["ok"])
+                self._cur["spawn_latency_s"] = None if o["done_t"] is None else round(o["done_t"] - o["issued_t"], 3)
+                self._cur["vid"] = o["vid"]
+                self._cur["spawned_t"] = now
+                self.log.append(f"{len(self.results) + 1}回目: 置く → "
+                                + ("できた" if o["ok"] else ("返事なし" if o["done_t"] is None else "失敗")))
+                self.state, self._mark = "holding", now
+        elif self.state == "holding":
+            if now - self._mark >= self.hold:
+                self._cur["mc_values"] = self.recorder.count_since(self._cur["spawned_t"])
+                self._cur["sim"] = self.ops.status()["sim"]
+                self._op = self.ops.despawn(t=now)
+                self.state, self._mark = "despawning", now
+        elif self.state == "despawning":
+            o = self.ops.get(self._op)
+            if o["done_t"] is not None or now - self._mark >= self.timeout:
+                self._cur["despawn_ok"] = bool(o["ok"])
+                self._cur["despawn_latency_s"] = None if o["done_t"] is None else round(o["done_t"] - o["issued_t"], 3)
+                self.log.append(f"{len(self.results) + 1}回目: 片付ける → "
+                                + ("できた" if o["ok"] else ("返事なし" if o["done_t"] is None else "失敗")))
+                self._cur.pop("spawned_t", None)
+                self.results.append(self._cur)
+                self.state, self._mark = "gap", now
+        elif self.state == "gap":
+            if now - self._mark >= self.gap:
+                if len(self.results) >= self.cycles:
+                    self.done = True
+                else:
+                    self._begin_cycle(now)
+
+    def _begin_cycle(self, now: float) -> None:
+        self._cur = {"cycle": len(self.results) + 1}
+        self._op = self.ops.spawn(self.vehicle, self.offset, self.relative, t=now)
+        self.state, self._mark = "spawning", now
+
+    def summary(self) -> dict:
+        spawn_ok = sum(1 for r in self.results if r.get("spawn_ok"))
+        despawn_ok = sum(1 for r in self.results if r.get("despawn_ok"))
+        return {"cycles": len(self.results), "spawn_ok": spawn_ok, "despawn_ok": despawn_ok,
+                "results": self.results,
+                "q3_pass": len(self.results) >= Q3_CYCLES and spawn_ok == despawn_ok == len(self.results)}
+
+
+def parse_spawn(path: str) -> tuple[str, tuple[float, float, float], bool]:
+    q = parse_qs(urlsplit(path).query)
+    try:
+        name = q["name"][0]
+        pos = (float(q.get("x", ["0"])[0]), float(q.get("y", ["0"])[0]), float(q.get("z", ["0"])[0]))
+    except (KeyError, ValueError) as e:
+        raise ValueError(f"name と x,y,z が要る（{e}）") from e
+    return name, pos, q.get("rel", ["1"])[0] == "1"
+
+
+def make_server(host: str, port: int, recorder: Recorder, commander: Commander | None = None,
+                addon: AddonOps | None = None) -> ThreadingHTTPServer:
     commander = commander or Commander()
+    addon = addon or AddonOps()
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802
             path = urlsplit(self.path).path
             if path in VALUE_PATHS:
                 self._values()
-            elif path == "/cmd":
+            elif path == "/addon":
+                self._addon()
+            elif path in ("/cmd", "/spawn", "/despawn"):
                 try:
-                    cid = commander.issue(parse_command(self.path))
+                    if path == "/cmd":
+                        oid = commander.issue(parse_command(self.path))
+                    elif path == "/spawn":
+                        name, pos, rel = parse_spawn(self.path)
+                        oid = addon.spawn(name, pos, rel)
+                    else:
+                        oid = addon.despawn()
                 except ValueError as e:
                     self._reply(400, f"error: {e}")
                     return
-                self._reply(200, f"id={cid}")
+                self._reply(200, f"id={oid}")
             else:
                 self._reply(404, "error: unknown path")
+
+        def _addon(self) -> None:
+            q = parse_qs(urlsplit(self.path).query)
+            try:
+                ack = int(q["a"][0])
+                ok = q.get("r", ["1"])[0] == "1"
+                vid = int(q.get("vid", ["-1"])[0])
+                sim = int(q.get("sim", ["-1"])[0])
+                players = int(q.get("np", ["0"])[0])
+            except (KeyError, ValueError) as e:
+                self._reply(200, f"error: {e}")
+                return
+            addon.on_poll(ack, ok, vid, sim, players)
+            self._reply(200, addon.reply_body())
 
         def _values(self) -> None:
             try:
@@ -304,24 +476,47 @@ def report_q2(c: dict, s: dict | None = None) -> str:
     return "\n".join(lines)
 
 
+def report_q3(q: dict) -> str:
+    lines = ["---- 機体を置く・片付けるの結果 ----"]
+    for r in q["results"]:
+        sp = "できた" if r.get("spawn_ok") else "できなかった"
+        dp = "できた" if r.get("despawn_ok") else "できなかった"
+        sim = {1: "物理が動いている", 0: "読み込み中", -1: "不明"}.get(r.get("sim", -1), "不明")
+        lines.append(f"{r['cycle']:2d}回目: 置く {sp}（{r.get('spawn_latency_s')}秒）、"
+                     f"マイコンからの値 {r.get('mc_values', 0)}件、{sim}、片付ける {dp}（{r.get('despawn_latency_s')}秒）")
+    lines.append(f"置けた: {q['spawn_ok']}/{q['cycles']}回、片付けられた: {q['despawn_ok']}/{q['cycles']}回")
+    lines.append("Q3 の基準（置く・片付けるが10回中10回）: " + ("満たした" if q["q3_pass"] else "満たさなかった"))
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
             stream.reconfigure(encoding="utf-8")
         except (AttributeError, ValueError):
             pass
-    ap = argparse.ArgumentParser(description="Stormworks のマイコンと値・指示をやり取りする中継プログラム")
-    ap.add_argument("--mode", choices=("q1", "q2"), default="q1",
-                    help="q1: 値が届くかを数える（既定）。q2: 指示を10回出して反映までの時間を測る")
+    ap = argparse.ArgumentParser(description="Stormworks のマイコン・アドオンと値・指示をやり取りする中継プログラム")
+    ap.add_argument("--mode", choices=("q1", "q2", "q3"), default="q1",
+                    help="q1: 値が届くかを数える（既定）。q2: 指示を10回出して反映までの時間を測る。"
+                         "q3: アドオンで機体を置く・片付けるを10回くり返す")
     ap.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"待ち受けるポート（既定 {DEFAULT_PORT}）")
     ap.add_argument("--seconds", type=float, default=Q1_MIN_SECONDS,
                     help="q1: 最初の受信からこの秒数で自動で止める。0 なら止めない（既定 60）")
     ap.add_argument("--values", type=int, default=DEFAULT_VALUES, help="1回に届くはずの値の数（既定 32）")
     ap.add_argument("--cmd-values", default="1,0",
                     help="q2: 出力1に順に出す値（カンマ区切り、既定 1,0）")
+    ap.add_argument("--vehicle", help="q3: 置く機体の保存名（ワークベンチで保存した名前）")
+    ap.add_argument("--offset", default="0,3,15",
+                    help="q3: 置く場所。プレイヤーの位置からのずれ x,y,z（m、既定 0,3,15。y が上）")
+    ap.add_argument("--absolute", action="store_true", help="q3: --offset をプレイヤーからのずれではなくワールドの座標とする")
     ap.add_argument("--logdir", default="logs", help="記録を書くフォルダ（既定 logs）")
     args = ap.parse_args(argv)
     cmd_values = [float(x) for x in args.cmd_values.split(",")]
+    if args.mode == "q3" and not args.vehicle:
+        ap.error("--mode q3 には --vehicle（置く機体の保存名）が要る")
+    offset = tuple(float(x) for x in args.offset.split(","))
+    if len(offset) != 3:
+        ap.error("--offset は x,y,z の3つの数")
 
     logdir = Path(args.logdir)
     logdir.mkdir(parents=True, exist_ok=True)
@@ -330,22 +525,49 @@ def main(argv: list[str] | None = None) -> int:
     log_path = logdir / f"{name}.jsonl"
     rec = Recorder(expected_values=args.values, log_path=log_path)
     com = Commander()
-    server = make_server("127.0.0.1", args.port, rec, com)
+    ops = AddonOps()
+    runner = None
+    if args.mode == "q3":
+        runner = Q3Runner(ops, rec, vehicle=args.vehicle, offset=offset, relative=not args.absolute)
+    server = make_server("127.0.0.1", args.port, rec, com, ops)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    print(f"待ち受け中: http://127.0.0.1:{args.port}/v   記録: {log_path}")
+    print(f"待ち受け中: http://127.0.0.1:{args.port}   記録: {log_path}")
     if args.mode == "q2":
         print(f"値が届き始めたら、{Q2_INTERVAL:g}秒ごとに出力1へ指示を{Q2_COMMANDS}回出します。")
-    print("ゲームで機体を出すと受信が始まります。Ctrl+C で止めます。")
+        print("ゲームで機体を出すと受信が始まります。Ctrl+C で止めます。")
+    elif args.mode == "q3":
+        print(f"アドオンから連絡が来たら、機体「{args.vehicle}」を置く・片付けるを{Q3_CYCLES}回くり返します。")
+        print("アドオンを有効にしたワールドに入ると始まります。Ctrl+C で止めます。")
+    else:
+        print("ゲームで機体を出すと受信が始まります。Ctrl+C で止めます。")
 
     last_print = 0.0
     q2_done_at = None
+    shown_log = 0
+    started = None
     try:
         while True:
             time.sleep(0.1)
+            now = time.monotonic()
+            if runner is not None:
+                if ops.polls == 0:
+                    continue
+                started = started or now
+                runner.step(now)
+                for line in runner.log[shown_log:]:
+                    print(line)
+                shown_log = len(runner.log)
+                if now - last_print >= 1.0:
+                    last_print = now
+                    st = ops.status()
+                    print(f"経過 {now - started:5.0f}秒  アドオンからの連絡 {ops.polls}回  "
+                          f"置いている機体 {st['vid']}  マイコンからの値 {rec.summary()['received']}件")
+                if runner.done:
+                    break
+                continue
             t0 = rec.first_time()
             if t0 is None:
                 continue
-            now = time.monotonic()
             if args.mode == "q2":
                 n = com.issued()
                 if n < Q2_COMMANDS and now >= t0 + 2.0 + Q2_INTERVAL * n:
@@ -373,13 +595,19 @@ def main(argv: list[str] | None = None) -> int:
         rec.close()
 
     s = rec.summary()
-    out = {"values": s}
-    if args.mode == "q2":
-        out["commands"] = com.summary()
     summary_path = logdir / f"{name}-summary.json"
-    summary_path.write_text(json.dumps(out if args.mode == "q2" else s, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(report(s) if args.mode == "q1" else report_q2(out["commands"], s))
-    if s["resent"]:
+    if args.mode == "q1":
+        out = s
+        text = report(s)
+    elif args.mode == "q2":
+        out = {"values": s, "commands": com.summary()}
+        text = report_q2(out["commands"], s)
+    else:
+        out = {"values": s, "q3": runner.summary(), "addon_ops": ops.summary()}
+        text = report_q3(out["q3"])
+    summary_path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(text)
+    if args.mode != "q3" and s["resent"]:
         print("注意: マイコンが返事を待ちきれず送り直しました。中継プログラムを機体より後に起動すると、"
               "その間の要求がゲームに溜まり、最初の数秒は返事が遅れます。")
     print(f"まとめ: {summary_path}")
