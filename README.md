@@ -116,14 +116,15 @@ Claude に Stormworks の計測実験を任せるための仕組み。企画書�
 
 ### 最初に一度だけやること
 
-1. **専用サーバーを入れる。** Steam のライブラリで「ツール」を表示し、「Stormworks Dedicated Server」（無料）をインストールする。
+1. **専用サーバーはゲーム本体に入っている**ので、別に入れなくてよい。
+   `server64.exe` は Stormworks（ゲーム本体）のフォルダにある（例：`Steam\steamapps\common\Stormworks\server64.exe`）。
+   フォルダは、Steam のライブラリで Stormworks を右クリック →「管理」→「ローカルファイルを閲覧」で開ける。
 2. **キープアクティブブロックを積んだ機体を用意する。** Q3 で保存した `claude_test` に、キープアクティブブロックを本体に1つ足して、
    `claude_test_ka` の名前で別に保存する。（`claude_test` はそのまま残す）
-3. **専用サーバーを一度起動して閉じる。** Steam のライブラリで Stormworks Dedicated Server を右クリック →「管理」→
-   「ローカルファイルを閲覧」で開いたフォルダの `server64.exe` を起動し、ワールドの読み込みが終わったら、黒い窓を閉じて止める。
-   これで `%APPDATA%\Stormworks\server_config.xml` ができる。
-4. **アドオンを専用サーバーに入れる。** このリポジトリの `game/addon/ClaudeBridge` フォルダを、
-   専用サーバーのフォルダ（手順3で開いたところ）の `rom\data\missions\` の下にコピーする。
+3. **専用サーバーを一度起動して閉じる。** 手順1のフォルダの `server64.exe` を起動し、ワールドの読み込みが終わったら、
+   黒い窓を閉じて止める。これで `%APPDATA%\Stormworks\server_config.xml` ができる。
+4. **アドオンを専用サーバーから見える場所に入れる。** このリポジトリの `game/addon/ClaudeBridge` フォルダを、
+   手順1のフォルダ（ゲーム本体のフォルダ）の `rom\data\missions\` の下にコピーする。
 5. **専用サーバーの設定を書き換える。** `%APPDATA%\Stormworks\server_config.xml` を、念のため別の名前でコピーして控えを取ってから、メモ帳で開く。
    `<playlists>` と `</playlists>` の間にある `<path path="…"/>` の行をすべて消し、代わりに次の1行を入れて保存する。
    ほかのアドオン（標準のミッションなど）を外して、軽くするため。
@@ -141,7 +142,7 @@ Claude に Stormworks の計測実験を任せるための仕組み。企画書�
    python relay/relay.py --mode q4
    ```
 
-3. `server64.exe` を起動する。ワールドが読み込まれ、アドオンから連絡が来ると自動で始まる。
+3. ゲーム本体のフォルダの `server64.exe` を起動する。ワールドが読み込まれ、アドオンから連絡が来ると自動で始まる。
    `claude_test` を60秒、`claude_test_ka` を60秒、順に置いて回しながら様子を見る（全部で2分半ほど）。
    **終わるまで、ゲームから専用サーバーに接続しない。**
 4. その間、メインPCでふだんの作業（ブラウザ、動画など）をして、重く感じたかを覚えておく。
