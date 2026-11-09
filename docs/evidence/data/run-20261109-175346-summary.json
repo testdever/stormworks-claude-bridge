@@ -1,0 +1,249 @@
+{
+  "script": {
+    "name": "Q6 物理センサーの出力の順番を確かめる",
+    "note": "回す前・回している間・止めたあとの値を比べ、回転に関わる出力（角速度・方位など）がどの番号かを確かめる",
+    "steps": [
+      {
+        "op": "move_player",
+        "pos": [
+          -260.9,
+          6,
+          -18949
+        ],
+        "label": "実験場所へ移る"
+      },
+      {
+        "op": "spawn",
+        "vehicle": "claude_test",
+        "offset": [
+          0,
+          3,
+          15
+        ],
+        "label": "機体を置く"
+      },
+      {
+        "op": "wait",
+        "seconds": 3,
+        "label": "落ち着くのを待つ"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 1
+        },
+        "label": "モーターを回す"
+      },
+      {
+        "op": "wait",
+        "seconds": 10,
+        "label": "回している間"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 0
+        },
+        "label": "モーターを止める"
+      },
+      {
+        "op": "wait",
+        "seconds": 5,
+        "label": "止めたあと"
+      },
+      {
+        "op": "despawn",
+        "label": "片付ける"
+      }
+    ]
+  },
+  "result": {
+    "name": "Q6 物理センサーの出力の順番を確かめる",
+    "status": "completed",
+    "reason": "",
+    "steps": [
+      {
+        "i": 1,
+        "op": "move_player",
+        "label": "実験場所へ移る",
+        "start_s": 0.0,
+        "end_s": 0.201,
+        "ok": true
+      },
+      {
+        "i": 2,
+        "op": "spawn",
+        "label": "機体を置く",
+        "start_s": 0.201,
+        "end_s": 0.302,
+        "ok": true
+      },
+      {
+        "i": 3,
+        "op": "wait",
+        "label": "落ち着くのを待つ",
+        "start_s": 0.302,
+        "end_s": 3.312,
+        "ok": true
+      },
+      {
+        "i": 4,
+        "op": "set",
+        "label": "モーターを回す",
+        "start_s": 3.312,
+        "end_s": 3.413,
+        "ok": true
+      },
+      {
+        "i": 5,
+        "op": "wait",
+        "label": "回している間",
+        "start_s": 3.413,
+        "end_s": 13.45,
+        "ok": true
+      },
+      {
+        "i": 6,
+        "op": "set",
+        "label": "モーターを止める",
+        "start_s": 13.45,
+        "end_s": 13.551,
+        "ok": true
+      },
+      {
+        "i": 7,
+        "op": "wait",
+        "label": "止めたあと",
+        "start_s": 13.551,
+        "end_s": 18.568,
+        "ok": true
+      },
+      {
+        "i": 8,
+        "op": "despawn",
+        "label": "片付ける",
+        "start_s": 18.568,
+        "end_s": 18.668,
+        "ok": true
+      }
+    ],
+    "injects": [],
+    "stopped_at_s": null,
+    "stop_latency_s": null
+  },
+  "values": {
+    "received": 369,
+    "malformed": 0,
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 17.679,
+    "full_seconds": 17,
+    "min_per_sec": 20,
+    "max_per_sec": 21,
+    "avg_per_sec": 20.82,
+    "q1_pass": false
+  },
+  "load": {
+    "process": "stormworks64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": 10.7,
+    "cpu_percent_max": 13.0,
+    "memory_mb_max": 2284.5,
+    "samples": 10
+  },
+  "load_samples": [
+    {
+      "t": 29208.8628714,
+      "memory_mb": 155.2,
+      "cpu_percent": null
+    },
+    {
+      "t": 29214.1924189,
+      "memory_mb": 486.5,
+      "cpu_percent": 11.0
+    },
+    {
+      "t": 29219.5935408,
+      "memory_mb": 688.4,
+      "cpu_percent": 8.0
+    },
+    {
+      "t": 29225.0193142,
+      "memory_mb": 1122.5,
+      "cpu_percent": 11.5
+    },
+    {
+      "t": 29230.4660604,
+      "memory_mb": 2140.3,
+      "cpu_percent": 12.7
+    },
+    {
+      "t": 29235.8589499,
+      "memory_mb": 2213.9,
+      "cpu_percent": 13.0
+    },
+    {
+      "t": 29241.2488684,
+      "memory_mb": 2225.6,
+      "cpu_percent": 6.8
+    },
+    {
+      "t": 29246.6004776,
+      "memory_mb": 2281.9,
+      "cpu_percent": 10.8
+    },
+    {
+      "t": 29252.00816,
+      "memory_mb": 2281.0,
+      "cpu_percent": 11.9
+    },
+    {
+      "t": 29257.4576949,
+      "memory_mb": 2284.5,
+      "cpu_percent": 10.6
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 1,
+        "op": "move_player",
+        "args": [
+          "-260.9",
+          "6",
+          "-18949"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.109
+      },
+      {
+        "id": 2,
+        "op": "spawn",
+        "args": [
+          "claude_test",
+          "0",
+          "3",
+          "15",
+          "1"
+        ],
+        "ok": true,
+        "vid": 6,
+        "latency_s": 0.052
+      },
+      {
+        "id": 3,
+        "op": "despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.095
+      }
+    ],
+    "polls": 389
+  }
+}
