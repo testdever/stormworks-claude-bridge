@@ -27,11 +27,15 @@ class World:
         self.moved_to = []
         self.target_pos = None  # 置いた標的の位置（アドオンが知らせる）
         self.resets = 0
+        self.reset_t = None     # 置き直すと、2 秒の間 海に落ちて上下に揺れる
         self.shot_n, self.last_shot = 0, -99.0   # 射撃許可（出力5）が出ている間、2.5 秒ごとに撃つ
         self.ghost_from = None  # この時刻から、片付けられずに残った別の機体のマイコンも値を送る
         self.ghost_seq = 6
 
+    _now = 0.0
+
     def tick(self, t: float) -> None:
+        self._now = t
         if self.paused_from is not None and t >= self.paused_from:
             return  # ゲームが止まると、アドオンもマイコンも何も送らない
         if self.ghost_from is not None and t >= self.ghost_from:
@@ -57,6 +61,7 @@ class World:
                 self.target_pos = None
             elif p["op"] == "target_reset":
                 self.resets += 1
+                self.reset_t = t
             self.ops.on_poll(ack=p["id"], ok=ok, vid=self.vid, sim=1 if self.vid >= 0 else -1, players=1, t=t,
                              target=self._target())
         else:
@@ -88,7 +93,10 @@ class World:
     def _target(self):
         if self.target_pos is None:
             return None
-        return {"vid": 50, "sim": 1, "pos": list(self.target_pos)}
+        pos = list(self.target_pos)
+        if self.reset_t is not None and self._now - self.reset_t < 2.0:
+            pos[1] += 1.5 * math.cos(3.0 * (self._now - self.reset_t))
+        return {"vid": 50, "sim": 1, "pos": pos}
 
     def run(self, script, limit=200.0):
         r = relay.ExperimentRunner(self.ops, self.rec, self.com, script)
@@ -297,6 +305,44 @@ class ExperimentRunnerTest(unittest.TestCase):
         self.assertEqual(w.cmd[5], 0.0, "撃ち終わったら射撃許可を切る")
         self.assertEqual([m["from"] for m in res["fire_steps"]], [1, 2, 3])
         self.assertTrue(any("（2/3）" in s["label"] for s in res["steps"]))
+
+    def test_steady_fire_waits_until_the_target_stops_bobbing(self):
+        w = World()
+        w.shot_times = []
+        script = {"name": "落ち着いてから撃つ", "steps": [
+            {"op": "spawn", "vehicle": "claude_test", "offset": [0, 3, 15]},
+            {"op": "target", "vehicle": "claude_target", "distance": 2000, "y": 2},
+            {"op": "aim_target"},
+            {"op": "wait", "seconds": 3},
+            {"op": "target_reset"},
+            {"op": "fire", "shots": 1, "timeout_s": 10, "steady": {"within_m": 0.2, "for_s": 1.0}},
+        ]}
+        r = w.run(script)
+        res = r.result()
+        self.assertEqual(res["status"], "completed", res["reason"])
+        self.assertEqual(w.shot_n, 1)
+        self.assertGreaterEqual(res["fire_steps"][0]["steady_wait_s"], 2.5, "揺れが収まって 1 秒たってから")
+        self.assertLess(res["fire_steps"][0]["steady_wait_s"], 4.0)
+
+    def test_steady_fire_gives_up_when_the_target_keeps_moving(self):
+        w = World()
+        orig = w._target
+
+        def moving():
+            tg = orig()
+            if tg:
+                tg["pos"][0] += w._now  # 1 m/s で流されている
+            return tg
+        w._target = moving
+        script = {"name": "落ち着かない", "steps": [
+            {"op": "spawn", "vehicle": "claude_test", "offset": [0, 3, 15]},
+            {"op": "target", "vehicle": "claude_target", "distance": 2000, "y": 2},
+            {"op": "fire", "shots": 1, "timeout_s": 5, "steady": {"within_m": 0.2, "for_s": 1.0}},
+        ]}
+        r = w.run(script)
+        self.assertEqual(r.result()["status"], "stopped")
+        self.assertIn("落ち着かず", r.result()["reason"])
+        self.assertEqual(w.shot_n, 0, "射撃許可は出さない")
 
     def test_fire_times_out_when_no_shot_comes(self):
         w = World()

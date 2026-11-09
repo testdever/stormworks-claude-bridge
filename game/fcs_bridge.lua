@@ -5,7 +5,8 @@
 -- out on/off 1: fire permission (command FIRE > 0.5). Off by itself if the relay stops answering for SAFE ticks
 -- out number 29: shots seen, 30: requests sent, 31: ok replies, 32: error replies
 -- Sends only the SEL channels, every SENDT ticks (sooner when a shot is waiting to be sent)
--- Shot: FCS was ready within READY ticks and the barrel moved KICK deg or more in one tick (recoil).
+-- Shot: fire permission was on and FCS was ready within READY ticks, and the barrel moved KICK deg or more
+--   in one tick (recoil). Without permission the gun cannot fire, so turret slewing is not counted.
 --   The record is the tick before: n:tick:diff:req:range:pred:tof (diff = barrel - solution, deg)
 PORT=8765
 SEL={7,8,9,13,20,21}
@@ -35,6 +36,7 @@ sentN=0
 shotN=0
 prev=nil
 sinceReady=99
+sinceFire=99
 sinceKick=999
 
 function onTick()
@@ -50,7 +52,8 @@ function onTick()
 	local ready=input.getBool(5)
 	sinceReady=ready and 0 or sinceReady+1
 	sinceKick=sinceKick+1
-	if prev and sinceReady<=READY and sinceKick>REFR and math.abs(now.b-prev.b)>=KICK then
+	sinceFire=cmd[FIRE]>0.5 and 0 or sinceFire+1
+	if prev and sinceFire<=READY and sinceReady<=READY and sinceKick>REFR and math.abs(now.b-prev.b)>=KICK then
 		sinceKick=0
 		shotN=shotN+1
 		if #shots<50 then

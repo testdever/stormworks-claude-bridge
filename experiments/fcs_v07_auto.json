@@ -1,6 +1,6 @@
 {
   "name": "FCS V-07（手放し）：1 km・2 km で 10 発ずつ、撃った瞬間の照準のずれと命中",
-  "note": "test calc（陸に固定した Battle Cannon と FCS）用。つなぎのマイコンは game/fcs_bridge.lua。標的の座標は ch1 = X、ch2 = Z、ch3 = Y（test calc の並び）、射撃許可は指示 5（つなぎのマイコンの on/off 出力 1 → FCS の allow fire）。1発ごとに標的を置いたときの向きに戻してから撃つ。本人は始めに撃ちたい海の方向を向くだけ",
+  "note": "test calc（陸に固定した Battle Cannon と FCS）用。つなぎのマイコンは game/fcs_bridge.lua。標的の座標は ch1 = X、ch2 = Z、ch3 = Y（test calc の並び）、射撃許可は指示 5（つなぎのマイコンの on/off 出力 1 → FCS の allow fire）。1発ごとに標的を置いたときの向きに戻してから撃つ。本人は始めに撃ちたい海の方向を向くだけ。標的は海面の高さ（y = 0）に置く（2 m から落とすと 2〜3 秒上下に揺れ、FCS がそれを追って外れた）。撃つのは、標的の位置が 1 秒の間 0.3 m 以内に収まってから",
   "steps": [
     {
       "op": "weather",
@@ -18,7 +18,7 @@
       "op": "target",
       "vehicle": "claude_target",
       "distance": 1000,
-      "y": 2,
+      "y": 0,
       "label": "向いている方向の 1 km 先に標的を置く"
     },
     {
@@ -46,14 +46,18 @@
         },
         {
           "op": "wait",
-          "seconds": 2.5,
-          "label": "標的が落ち着くのを待つ"
+          "seconds": 1.0,
+          "label": "置き直した標的が着水するのを待つ"
         },
         {
           "op": "fire",
           "shots": 1,
           "timeout_s": 20,
-          "label": "1発撃つ"
+          "label": "標的が落ち着いたら1発撃つ",
+          "steady": {
+            "within_m": 0.3,
+            "for_s": 1.0
+          }
         },
         {
           "op": "wait",
@@ -70,7 +74,7 @@
       "op": "target",
       "vehicle": "claude_target",
       "distance": 2000,
-      "y": 2,
+      "y": 0,
       "same_direction": true,
       "label": "同じ方向の 2 km 先に標的を置く"
     },
@@ -99,14 +103,18 @@
         },
         {
           "op": "wait",
-          "seconds": 2.5,
-          "label": "標的が落ち着くのを待つ"
+          "seconds": 1.0,
+          "label": "置き直した標的が着水するのを待つ"
         },
         {
           "op": "fire",
           "shots": 1,
           "timeout_s": 20,
-          "label": "1発撃つ"
+          "label": "標的が落ち着いたら1発撃つ",
+          "steady": {
+            "within_m": 0.3,
+            "for_s": 1.0
+          }
         },
         {
           "op": "wait",

@@ -60,9 +60,14 @@ class FcsBridgeTest(unittest.TestCase):
         self.assertIn("&ch=7,8,9,13,20,21&", v.sent[-1])
         self.assertEqual(self.rec.summary()["bad_values"], 0)
 
+    def allow(self, v):
+        self.com.issue({5: 1})
+        v.tick(15)
+
     def test_shot_is_detected_every_tick_and_reaches_the_relay(self):
         v = FcsRig(self.port)
         v.tick(10)
+        self.allow(v)
         v.nums[9] = 3.21    # 撃った瞬間の解。砲身は 3.2° なので、ずれ -0.01°
         v.tick(1)
         v.kick()
@@ -77,6 +82,7 @@ class FcsBridgeTest(unittest.TestCase):
     def test_recoil_is_counted_once_and_needs_ready(self):
         v = FcsRig(self.port)
         v.tick(10)
+        self.allow(v)
         v.kick()
         v.kick()            # 揺れ戻し。1秒以内は同じ1発
         v.tick(70)
@@ -107,9 +113,18 @@ class FcsBridgeTest(unittest.TestCase):
         v.tick(150)
         self.assertFalse(v.bools[1], "返事が2秒来なければ、自分で射撃許可を切る")
 
-    def test_shots_are_kept_until_the_relay_answers(self):
-        v = FcsRig(self.port, reply=False)
+    def test_turret_slewing_without_permission_is_not_a_shot(self):
+        v = FcsRig(self.port)
         v.tick(10)
+        v.kick()            # 座標を受けて砲塔が動き出した。射撃許可がないので撃てない
+        v.tick(15)
+        self.assertEqual(len(self.rec.shots()), 0)
+
+    def test_shots_are_kept_until_the_relay_answers(self):
+        v = FcsRig(self.port)
+        v.tick(10)
+        self.allow(v)
+        v.reply = False
         v.kick()
         v.tick(200)
         g = v.lua.globals()

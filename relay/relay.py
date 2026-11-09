@@ -776,6 +776,9 @@ class ExperimentRunner:
         self._stops_seen = 0
         self._fire_ch: int | None = None   # fire で射撃許可を出したチャンネル
         self._fire_base = 0
+        self._fire_armed = True            # 射撃許可を出したか（steady のときは、標的が落ち着いてから出す）
+        self._fire_armed_t: float | None = None
+        self._steady: list[tuple[float, tuple]] = []  # 標的の位置の、直近の記録
         self._shot_marks: list[dict] = []  # fire の手順ごとの、撃った番号の範囲
         # マイコンごとの値の流れ。1台のマイコンの通し番号と tick は増え続けるので、続かない値は別のマイコンから来ている
         self._streams: list[dict] = []
@@ -828,6 +831,10 @@ class ExperimentRunner:
                 raise ValueError(f"{i}番目の weather には fog・rain・wind（0〜1）が要る")
             if op == "fire" and int(s.get("shots", 0)) < 1:
                 raise ValueError(f"{i}番目の fire には shots（撃つ数、1以上）が要る")
+            if op == "fire" and "steady" in s:
+                st = s["steady"]
+                if not (isinstance(st, dict) and float(st.get("within_m", 0)) > 0 and float(st.get("for_s", 0)) > 0):
+                    raise ValueError(f"{i}番目の fire の steady は {{within_m: 何m以内, for_s: 何秒}}")
             if op == "aim_target" and len(s.get("channels", [1, 2, 3, 4])) != 4:
                 raise ValueError(f"{i}番目の aim_target の channels は [X, Y, Z, 有効] の4つ")
             if op == "inject" and s.get("kind") not in ("despawn", "nan"):
@@ -963,7 +970,11 @@ class ExperimentRunner:
         elif op == "fire":
             self._fire_ch = int(s.get("channel", 5))
             self._fire_base = self.recorder.shot_count()
-            self.commander.issue({self._fire_ch: 1.0}, t=now)
+            self._steady = []
+            self._fire_armed = "steady" not in s
+            self._fire_armed_t = now if self._fire_armed else None
+            if self._fire_armed:
+                self.commander.issue({self._fire_ch: 1.0}, t=now)
         elif op == "aim_target":
             self._follow = [int(c) for c in s.get("channels", [1, 2, 3, 4])]
             self._follow_last = None
@@ -1020,16 +1031,23 @@ class ExperimentRunner:
                 self._rows[-1]["ok"] = True
                 self._next(now)
         elif op == "fire":
+            if not self._fire_armed and self._target_steady(now, s["steady"]):
+                self.commander.issue({self._fire_ch: 1.0}, t=now)
+                self._fire_armed, self._fire_armed_t = True, now
             got = self.recorder.shot_count() - self._fire_base
             want = int(s["shots"])
             if got >= want:
                 self.commander.issue({self._fire_ch: 0.0}, t=now)
                 self._shot_marks.append({"step": self._i + 1, "from": self._fire_base + 1, "to": self._fire_base + got,
-                                         "t_s": self._rel(now)})
+                                         "t_s": self._rel(now),
+                                         "steady_wait_s": round(self._fire_armed_t - self._step_t, 3)})
                 self._rows[-1]["ok"] = True
                 self._next(now)
             elif elapsed >= float(s.get("timeout_s", 30)):
-                self._fail(now, f"{want}発撃てなかった（{elapsed:.0f}秒で{got}発）")
+                if not self._fire_armed:
+                    self._fail(now, f"標的が落ち着かず、撃てなかった（{elapsed:.0f}秒）")
+                else:
+                    self._fail(now, f"{want}発撃てなかった（{elapsed:.0f}秒で{got}発）")
         elif op in ("inject", "aim_target"):
             self._rows[-1]["ok"] = True
             self._next(now)
@@ -1045,6 +1063,20 @@ class ExperimentRunner:
             self._follow = None
         if off:
             self.commander.issue(off, t=now)
+
+    def _target_steady(self, now: float, st: dict) -> bool:
+        """標的の位置が、直近 for_s 秒の間 within_m 以内に収まっているか（置き直した直後は海に落ちて揺れる）。"""
+        pos = (self.ops.status().get("target") or {}).get("pos")
+        if pos is None:
+            return False
+        span = float(st["for_s"])
+        self._steady.append((now, tuple(pos)))
+        while len(self._steady) > 1 and self._steady[1][0] <= now - span:
+            self._steady.pop(0)
+        if self._steady[0][0] > now - span:
+            return False
+        return all(max(p[k] for _, p in self._steady) - min(p[k] for _, p in self._steady) <= float(st["within_m"])
+                   for k in range(3))
 
     def _feed_target(self, now: float) -> None:
         """標的の座標をマイコンに渡す。前の分が届いてから、動いたときだけ（指示を溜めない）。"""

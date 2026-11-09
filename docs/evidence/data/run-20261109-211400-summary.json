@@ -1,0 +1,351 @@
+{
+  "script": {
+    "name": "FCS V-07（手放し）：1 km・2 km で 10 発ずつ、撃った瞬間の照準のずれと命中",
+    "note": "test calc（陸に固定した Battle Cannon と FCS）用。つなぎのマイコンは game/fcs_bridge.lua。標的の座標は ch1 = X、ch2 = Z、ch3 = Y（test calc の並び）、射撃許可は指示 5（つなぎのマイコンの on/off 出力 1 → FCS の allow fire）。1発ごとに標的を置いたときの向きに戻してから撃つ。本人は始めに撃ちたい海の方向を向くだけ",
+    "steps": [
+      {
+        "op": "weather",
+        "fog": 0,
+        "rain": 0,
+        "wind": 0,
+        "label": "天気を穏やかにする（霧・雨・風を 0）"
+      },
+      {
+        "op": "wait",
+        "seconds": 10,
+        "label": "撃ちたい方向を向いて待つ"
+      },
+      {
+        "op": "target",
+        "vehicle": "claude_target",
+        "distance": 1000,
+        "y": 2,
+        "label": "向いている方向の 1 km 先に標的を置く"
+      },
+      {
+        "op": "aim_target",
+        "channels": [
+          1,
+          3,
+          2,
+          4
+        ],
+        "label": "標的の座標を FCS に渡し続ける（ch1 = X、ch2 = Z、ch3 = Y）"
+      },
+      {
+        "op": "wait",
+        "seconds": 8,
+        "label": "砲塔が向くのを待つ"
+      },
+      {
+        "op": "repeat",
+        "times": 10,
+        "steps": [
+          {
+            "op": "target_reset",
+            "label": "標的を置いたときの向きに戻す"
+          },
+          {
+            "op": "wait",
+            "seconds": 2.5,
+            "label": "標的が落ち着くのを待つ"
+          },
+          {
+            "op": "fire",
+            "shots": 1,
+            "timeout_s": 20,
+            "label": "1発撃つ"
+          },
+          {
+            "op": "wait",
+            "seconds": 3.0,
+            "label": "着弾を待つ"
+          }
+        ]
+      },
+      {
+        "op": "target_despawn",
+        "label": "1 km の標的を片付ける"
+      },
+      {
+        "op": "target",
+        "vehicle": "claude_target",
+        "distance": 2000,
+        "y": 2,
+        "same_direction": true,
+        "label": "同じ方向の 2 km 先に標的を置く"
+      },
+      {
+        "op": "aim_target",
+        "channels": [
+          1,
+          3,
+          2,
+          4
+        ],
+        "label": "標的の座標を FCS に渡し続ける"
+      },
+      {
+        "op": "wait",
+        "seconds": 8,
+        "label": "砲塔が向くのを待つ"
+      },
+      {
+        "op": "repeat",
+        "times": 10,
+        "steps": [
+          {
+            "op": "target_reset",
+            "label": "標的を置いたときの向きに戻す"
+          },
+          {
+            "op": "wait",
+            "seconds": 2.5,
+            "label": "標的が落ち着くのを待つ"
+          },
+          {
+            "op": "fire",
+            "shots": 1,
+            "timeout_s": 20,
+            "label": "1発撃つ"
+          },
+          {
+            "op": "wait",
+            "seconds": 4.5,
+            "label": "着弾を待つ"
+          }
+        ]
+      },
+      {
+        "op": "target_despawn",
+        "label": "2 km の標的を片付ける"
+      }
+    ]
+  },
+  "result": {
+    "name": "FCS V-07（手放し）：1 km・2 km で 10 発ずつ、撃った瞬間の照準のずれと命中",
+    "status": "stopped",
+    "reason": "1発撃てなかった（20秒で0発）",
+    "steps": [
+      {
+        "i": 1,
+        "op": "weather",
+        "label": "天気を穏やかにする（霧・雨・風を 0）",
+        "start_s": 0.0,
+        "end_s": 0.101,
+        "ok": true
+      },
+      {
+        "i": 2,
+        "op": "wait",
+        "label": "撃ちたい方向を向いて待つ",
+        "start_s": 0.101,
+        "end_s": 10.134,
+        "ok": true
+      },
+      {
+        "i": 3,
+        "op": "target",
+        "label": "向いている方向の 1 km 先に標的を置く",
+        "start_s": 10.134,
+        "end_s": 10.234,
+        "ok": true
+      },
+      {
+        "i": 4,
+        "op": "aim_target",
+        "label": "標的の座標を FCS に渡し続ける（ch1 = X、ch2 = Z、ch3 = Y）",
+        "start_s": 10.234,
+        "end_s": 10.335,
+        "ok": true
+      },
+      {
+        "i": 5,
+        "op": "wait",
+        "label": "砲塔が向くのを待つ",
+        "start_s": 10.335,
+        "end_s": 18.365,
+        "ok": true
+      },
+      {
+        "i": 6,
+        "op": "target_reset",
+        "label": "標的を置いたときの向きに戻す（1/10）",
+        "start_s": 18.365,
+        "end_s": 18.465,
+        "ok": true
+      },
+      {
+        "i": 7,
+        "op": "wait",
+        "label": "標的が落ち着くのを待つ（1/10）",
+        "start_s": 18.465,
+        "end_s": 20.973,
+        "ok": true
+      },
+      {
+        "i": 8,
+        "op": "fire",
+        "label": "1発撃つ（1/10）",
+        "start_s": 20.973,
+        "end_s": 41.047,
+        "ok": false
+      }
+    ],
+    "injects": [],
+    "stopped_at_s": 41.047,
+    "stop_latency_s": null
+  },
+  "values": {
+    "received": 245,
+    "malformed": 0,
+    "malformed_examples": [],
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 38.975,
+    "full_seconds": 38,
+    "min_per_sec": 6,
+    "max_per_sec": 7,
+    "avg_per_sec": 6.26,
+    "q1_pass": false
+  },
+  "load": {
+    "process": "stormworks64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": 11.8,
+    "cpu_percent_max": 12.3,
+    "memory_mb_max": 2641.7,
+    "samples": 9
+  },
+  "load_samples": [
+    {
+      "t": 40825.1563855,
+      "memory_mb": 2636.5,
+      "cpu_percent": null
+    },
+    {
+      "t": 40830.5470202,
+      "memory_mb": 2636.5,
+      "cpu_percent": 12.3
+    },
+    {
+      "t": 40835.9067102,
+      "memory_mb": 2636.7,
+      "cpu_percent": 11.2
+    },
+    {
+      "t": 40841.2169932,
+      "memory_mb": 2640.2,
+      "cpu_percent": 11.7
+    },
+    {
+      "t": 40846.5402288,
+      "memory_mb": 2640.9,
+      "cpu_percent": 11.4
+    },
+    {
+      "t": 40851.8512768,
+      "memory_mb": 2641.1,
+      "cpu_percent": 11.9
+    },
+    {
+      "t": 40857.1699501,
+      "memory_mb": 2641.7,
+      "cpu_percent": 12.1
+    },
+    {
+      "t": 40862.4808617,
+      "memory_mb": 2640.3,
+      "cpu_percent": 11.8
+    },
+    {
+      "t": 40867.791342,
+      "memory_mb": 2640.3,
+      "cpu_percent": 11.7
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 1,
+        "op": "weather",
+        "args": [
+          "0",
+          "0",
+          "0"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.08
+      },
+      {
+        "id": 2,
+        "op": "target",
+        "args": [
+          "claude_target",
+          "1000",
+          "2",
+          "0"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.074
+      },
+      {
+        "id": 3,
+        "op": "target_reset",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.051
+      },
+      {
+        "id": 4,
+        "op": "target_despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.073
+      }
+    ],
+    "polls": 858,
+    "damage": {
+      "lost": 0,
+      "vehicles": {}
+    },
+    "target_pose": {
+      "13": {
+        "yaw_min": -9.19,
+        "yaw_max": 6.57,
+        "up_min": 0.9502
+      }
+    }
+  },
+  "fcs": {
+    "by_range": [
+      {
+        "range_m": 1000,
+        "shots": 1,
+        "hits": 0,
+        "aim_bias_m": -4.489,
+        "aim_sd_m": 0.0
+      }
+    ],
+    "shots": [
+      {
+        "n": 1,
+        "t": 40839.777,
+        "range": 994.9,
+        "diff_deg": -0.25854,
+        "aim_miss_m": -4.489,
+        "pred_m": 1.423,
+        "tof": 1.346,
+        "hit": false
+      }
+    ]
+  }
+}
