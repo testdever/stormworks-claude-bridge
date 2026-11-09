@@ -1,0 +1,2056 @@
+{
+  "script": {
+    "name": "FCS V-07（手放し・場所を固定：保存 claude_fcs）：1 km・2 km で 10 発ずつ",
+    "note": "保存 claude_fcs（seed が同じなら同じ地形）の、8回目（2026-11-09 22:26）と同じ場所と向きで流す。本人は保存を読み込むだけでよく、どちらを向いていてもよい（プレイヤーは保存した場所の近くにいること：地形と海が読み込まれるため）。test calc は世界の位置に、前（+z）を方位 177.8°（海の方向）に向けて出す。標的は基準点 [12811.596, -13049.853] から方向 [0.039015, -0.999239] に置く。ほかは fcs_v07_auto.json と同じ。",
+    "steps": [
+      {
+        "op": "setting",
+        "name": "vehicle_damage",
+        "on": true,
+        "label": "機体が傷つくようにする（当たりを数えるため）"
+      },
+      {
+        "op": "setting",
+        "name": "infinite_batteries",
+        "on": true,
+        "label": "電気を無限にする"
+      },
+      {
+        "op": "setting",
+        "name": "infinite_ammo",
+        "on": true,
+        "label": "弾を無限にする（test calc の給弾は弾が無限のときだけ動く）"
+      },
+      {
+        "op": "weather",
+        "fog": 0,
+        "rain": 0,
+        "wind": 0,
+        "label": "天気を穏やかにする（天気の上書きをオンにして、霧・雨・風を 0）"
+      },
+      {
+        "op": "spawn",
+        "vehicle": "test calc",
+        "label": "test calc を決まった場所に、海の方向へ向けて出す",
+        "pos": [
+          12801.41,
+          7.44,
+          -13045.247
+        ],
+        "yaw_deg": 177.76
+      },
+      {
+        "op": "wait",
+        "seconds": 20,
+        "label": "test calc が着地して固定され、FCS が動き出し、波が収まるのを待つ"
+      },
+      {
+        "op": "target",
+        "vehicle": "claude_target",
+        "distance": 1000,
+        "y": 0,
+        "label": "決まった方向の 1 km 先に標的を置く",
+        "from": [
+          12811.596,
+          -13049.853
+        ],
+        "dir": [
+          0.039015,
+          -0.999239
+        ]
+      },
+      {
+        "op": "aim_target",
+        "channels": [
+          1,
+          3,
+          2,
+          4
+        ],
+        "label": "標的の座標を FCS に渡し続ける（ch1 = X、ch2 = Z、ch3 = Y）"
+      },
+      {
+        "op": "wait",
+        "seconds": 8,
+        "label": "砲塔が向くのを待つ"
+      },
+      {
+        "op": "repeat",
+        "times": 10,
+        "steps": [
+          {
+            "op": "target_renew",
+            "label": "新しい標的に置き直す（回転・速さ・傷なし）"
+          },
+          {
+            "op": "wait",
+            "seconds": 1.0,
+            "label": "置き直した標的が着水するのを待つ"
+          },
+          {
+            "op": "fire",
+            "shots": 1,
+            "timeout_s": 20,
+            "label": "標的が落ち着いたら1発撃つ",
+            "steady": {
+              "within_m": 0.3,
+              "for_s": 1.0
+            }
+          },
+          {
+            "op": "wait",
+            "seconds": 3.0,
+            "label": "着弾を待つ"
+          }
+        ]
+      },
+      {
+        "op": "target_despawn",
+        "label": "1 km の標的を片付ける"
+      },
+      {
+        "op": "target",
+        "vehicle": "claude_target",
+        "distance": 2000,
+        "y": 0,
+        "label": "決まった方向の 2 km 先に標的を置く",
+        "from": [
+          12811.596,
+          -13049.853
+        ],
+        "dir": [
+          0.039015,
+          -0.999239
+        ]
+      },
+      {
+        "op": "aim_target",
+        "channels": [
+          1,
+          3,
+          2,
+          4
+        ],
+        "label": "標的の座標を FCS に渡し続ける"
+      },
+      {
+        "op": "wait",
+        "seconds": 8,
+        "label": "砲塔が向くのを待つ"
+      },
+      {
+        "op": "repeat",
+        "times": 10,
+        "steps": [
+          {
+            "op": "target_renew",
+            "label": "新しい標的に置き直す（回転・速さ・傷なし）"
+          },
+          {
+            "op": "wait",
+            "seconds": 1.0,
+            "label": "置き直した標的が着水するのを待つ"
+          },
+          {
+            "op": "fire",
+            "shots": 1,
+            "timeout_s": 20,
+            "label": "標的が落ち着いたら1発撃つ",
+            "steady": {
+              "within_m": 0.3,
+              "for_s": 1.0
+            }
+          },
+          {
+            "op": "wait",
+            "seconds": 4.5,
+            "label": "着弾を待つ"
+          }
+        ]
+      },
+      {
+        "op": "target_despawn",
+        "label": "2 km の標的を片付ける"
+      },
+      {
+        "op": "despawn",
+        "label": "test calc を片付ける"
+      }
+    ]
+  },
+  "result": {
+    "name": "FCS V-07（手放し・場所を固定：保存 claude_fcs）：1 km・2 km で 10 発ずつ",
+    "status": "completed",
+    "reason": "",
+    "steps": [
+      {
+        "i": 1,
+        "op": "setting",
+        "label": "機体が傷つくようにする（当たりを数えるため）",
+        "start_s": 0.0,
+        "end_s": 0.101,
+        "ok": true
+      },
+      {
+        "i": 2,
+        "op": "setting",
+        "label": "電気を無限にする",
+        "start_s": 0.101,
+        "end_s": 0.201,
+        "ok": true
+      },
+      {
+        "i": 3,
+        "op": "setting",
+        "label": "弾を無限にする（test calc の給弾は弾が無限のときだけ動く）",
+        "start_s": 0.201,
+        "end_s": 0.301,
+        "ok": true
+      },
+      {
+        "i": 4,
+        "op": "weather",
+        "label": "天気を穏やかにする（天気の上書きをオンにして、霧・雨・風を 0）",
+        "start_s": 0.301,
+        "end_s": 0.402,
+        "ok": true
+      },
+      {
+        "i": 5,
+        "op": "spawn",
+        "label": "test calc を決まった場所に、海の方向へ向けて出す",
+        "start_s": 0.402,
+        "end_s": 0.502,
+        "ok": true
+      },
+      {
+        "i": 6,
+        "op": "wait",
+        "label": "test calc が着地して固定され、FCS が動き出し、波が収まるのを待つ",
+        "start_s": 0.502,
+        "end_s": 20.575,
+        "ok": true
+      },
+      {
+        "i": 7,
+        "op": "target",
+        "label": "決まった方向の 1 km 先に標的を置く",
+        "start_s": 20.575,
+        "end_s": 20.675,
+        "ok": true
+      },
+      {
+        "i": 8,
+        "op": "aim_target",
+        "label": "標的の座標を FCS に渡し続ける（ch1 = X、ch2 = Z、ch3 = Y）",
+        "start_s": 20.675,
+        "end_s": 20.776,
+        "ok": true
+      },
+      {
+        "i": 9,
+        "op": "wait",
+        "label": "砲塔が向くのを待つ",
+        "start_s": 20.776,
+        "end_s": 28.808,
+        "ok": true
+      },
+      {
+        "i": 10,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（1/10）",
+        "start_s": 28.808,
+        "end_s": 28.909,
+        "ok": true
+      },
+      {
+        "i": 11,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（1/10）",
+        "start_s": 28.909,
+        "end_s": 29.913,
+        "ok": true
+      },
+      {
+        "i": 12,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（1/10）",
+        "start_s": 29.913,
+        "end_s": 33.427,
+        "ok": true
+      },
+      {
+        "i": 13,
+        "op": "wait",
+        "label": "着弾を待つ（1/10）",
+        "start_s": 33.427,
+        "end_s": 36.438,
+        "ok": true
+      },
+      {
+        "i": 14,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（2/10）",
+        "start_s": 36.438,
+        "end_s": 36.538,
+        "ok": true
+      },
+      {
+        "i": 15,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（2/10）",
+        "start_s": 36.538,
+        "end_s": 37.542,
+        "ok": true
+      },
+      {
+        "i": 16,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（2/10）",
+        "start_s": 37.542,
+        "end_s": 42.461,
+        "ok": true
+      },
+      {
+        "i": 17,
+        "op": "wait",
+        "label": "着弾を待つ（2/10）",
+        "start_s": 42.461,
+        "end_s": 45.472,
+        "ok": true
+      },
+      {
+        "i": 18,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（3/10）",
+        "start_s": 45.472,
+        "end_s": 45.573,
+        "ok": true
+      },
+      {
+        "i": 19,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（3/10）",
+        "start_s": 45.573,
+        "end_s": 46.577,
+        "ok": true
+      },
+      {
+        "i": 20,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（3/10）",
+        "start_s": 46.577,
+        "end_s": 51.094,
+        "ok": true
+      },
+      {
+        "i": 21,
+        "op": "wait",
+        "label": "着弾を待つ（3/10）",
+        "start_s": 51.094,
+        "end_s": 54.106,
+        "ok": true
+      },
+      {
+        "i": 22,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（4/10）",
+        "start_s": 54.106,
+        "end_s": 54.206,
+        "ok": true
+      },
+      {
+        "i": 23,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（4/10）",
+        "start_s": 54.206,
+        "end_s": 55.209,
+        "ok": true
+      },
+      {
+        "i": 24,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（4/10）",
+        "start_s": 55.209,
+        "end_s": 59.729,
+        "ok": true
+      },
+      {
+        "i": 25,
+        "op": "wait",
+        "label": "着弾を待つ（4/10）",
+        "start_s": 59.729,
+        "end_s": 62.741,
+        "ok": true
+      },
+      {
+        "i": 26,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（5/10）",
+        "start_s": 62.741,
+        "end_s": 62.841,
+        "ok": true
+      },
+      {
+        "i": 27,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（5/10）",
+        "start_s": 62.841,
+        "end_s": 63.845,
+        "ok": true
+      },
+      {
+        "i": 28,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（5/10）",
+        "start_s": 63.845,
+        "end_s": 68.867,
+        "ok": true
+      },
+      {
+        "i": 29,
+        "op": "wait",
+        "label": "着弾を待つ（5/10）",
+        "start_s": 68.867,
+        "end_s": 71.879,
+        "ok": true
+      },
+      {
+        "i": 30,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（6/10）",
+        "start_s": 71.879,
+        "end_s": 71.979,
+        "ok": true
+      },
+      {
+        "i": 31,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（6/10）",
+        "start_s": 71.979,
+        "end_s": 72.984,
+        "ok": true
+      },
+      {
+        "i": 32,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（6/10）",
+        "start_s": 72.984,
+        "end_s": 77.304,
+        "ok": true
+      },
+      {
+        "i": 33,
+        "op": "wait",
+        "label": "着弾を待つ（6/10）",
+        "start_s": 77.304,
+        "end_s": 80.316,
+        "ok": true
+      },
+      {
+        "i": 34,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（7/10）",
+        "start_s": 80.316,
+        "end_s": 80.417,
+        "ok": true
+      },
+      {
+        "i": 35,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（7/10）",
+        "start_s": 80.417,
+        "end_s": 81.421,
+        "ok": true
+      },
+      {
+        "i": 36,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（7/10）",
+        "start_s": 81.421,
+        "end_s": 86.242,
+        "ok": true
+      },
+      {
+        "i": 37,
+        "op": "wait",
+        "label": "着弾を待つ（7/10）",
+        "start_s": 86.242,
+        "end_s": 89.254,
+        "ok": true
+      },
+      {
+        "i": 38,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（8/10）",
+        "start_s": 89.254,
+        "end_s": 89.354,
+        "ok": true
+      },
+      {
+        "i": 39,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（8/10）",
+        "start_s": 89.354,
+        "end_s": 90.358,
+        "ok": true
+      },
+      {
+        "i": 40,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（8/10）",
+        "start_s": 90.358,
+        "end_s": 94.876,
+        "ok": true
+      },
+      {
+        "i": 41,
+        "op": "wait",
+        "label": "着弾を待つ（8/10）",
+        "start_s": 94.876,
+        "end_s": 97.89,
+        "ok": true
+      },
+      {
+        "i": 42,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（9/10）",
+        "start_s": 97.89,
+        "end_s": 97.99,
+        "ok": true
+      },
+      {
+        "i": 43,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（9/10）",
+        "start_s": 97.99,
+        "end_s": 98.995,
+        "ok": true
+      },
+      {
+        "i": 44,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（9/10）",
+        "start_s": 98.995,
+        "end_s": 102.712,
+        "ok": true
+      },
+      {
+        "i": 45,
+        "op": "wait",
+        "label": "着弾を待つ（9/10）",
+        "start_s": 102.712,
+        "end_s": 105.725,
+        "ok": true
+      },
+      {
+        "i": 46,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（10/10）",
+        "start_s": 105.725,
+        "end_s": 105.826,
+        "ok": true
+      },
+      {
+        "i": 47,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（10/10）",
+        "start_s": 105.826,
+        "end_s": 106.83,
+        "ok": true
+      },
+      {
+        "i": 48,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（10/10）",
+        "start_s": 106.83,
+        "end_s": 110.748,
+        "ok": true
+      },
+      {
+        "i": 49,
+        "op": "wait",
+        "label": "着弾を待つ（10/10）",
+        "start_s": 110.748,
+        "end_s": 113.76,
+        "ok": true
+      },
+      {
+        "i": 50,
+        "op": "target_despawn",
+        "label": "1 km の標的を片付ける",
+        "start_s": 113.76,
+        "end_s": 113.86,
+        "ok": true
+      },
+      {
+        "i": 51,
+        "op": "target",
+        "label": "決まった方向の 2 km 先に標的を置く",
+        "start_s": 113.86,
+        "end_s": 113.961,
+        "ok": true
+      },
+      {
+        "i": 52,
+        "op": "aim_target",
+        "label": "標的の座標を FCS に渡し続ける",
+        "start_s": 113.961,
+        "end_s": 114.061,
+        "ok": true
+      },
+      {
+        "i": 53,
+        "op": "wait",
+        "label": "砲塔が向くのを待つ",
+        "start_s": 114.061,
+        "end_s": 122.094,
+        "ok": true
+      },
+      {
+        "i": 54,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（1/10）",
+        "start_s": 122.094,
+        "end_s": 122.194,
+        "ok": true
+      },
+      {
+        "i": 55,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（1/10）",
+        "start_s": 122.194,
+        "end_s": 123.199,
+        "ok": true
+      },
+      {
+        "i": 56,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（1/10）",
+        "start_s": 123.199,
+        "end_s": 127.218,
+        "ok": true
+      },
+      {
+        "i": 57,
+        "op": "wait",
+        "label": "着弾を待つ（1/10）",
+        "start_s": 127.218,
+        "end_s": 131.739,
+        "ok": true
+      },
+      {
+        "i": 58,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（2/10）",
+        "start_s": 131.739,
+        "end_s": 131.84,
+        "ok": true
+      },
+      {
+        "i": 59,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（2/10）",
+        "start_s": 131.84,
+        "end_s": 132.844,
+        "ok": true
+      },
+      {
+        "i": 60,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（2/10）",
+        "start_s": 132.844,
+        "end_s": 137.969,
+        "ok": true
+      },
+      {
+        "i": 61,
+        "op": "wait",
+        "label": "着弾を待つ（2/10）",
+        "start_s": 137.969,
+        "end_s": 142.489,
+        "ok": true
+      },
+      {
+        "i": 62,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（3/10）",
+        "start_s": 142.489,
+        "end_s": 142.589,
+        "ok": true
+      },
+      {
+        "i": 63,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（3/10）",
+        "start_s": 142.589,
+        "end_s": 143.593,
+        "ok": true
+      },
+      {
+        "i": 64,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（3/10）",
+        "start_s": 143.593,
+        "end_s": 148.821,
+        "ok": true
+      },
+      {
+        "i": 65,
+        "op": "wait",
+        "label": "着弾を待つ（3/10）",
+        "start_s": 148.821,
+        "end_s": 153.344,
+        "ok": true
+      },
+      {
+        "i": 66,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（4/10）",
+        "start_s": 153.344,
+        "end_s": 153.444,
+        "ok": true
+      },
+      {
+        "i": 67,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（4/10）",
+        "start_s": 153.444,
+        "end_s": 154.449,
+        "ok": true
+      },
+      {
+        "i": 68,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（4/10）",
+        "start_s": 154.449,
+        "end_s": 158.369,
+        "ok": true
+      },
+      {
+        "i": 69,
+        "op": "wait",
+        "label": "着弾を待つ（4/10）",
+        "start_s": 158.369,
+        "end_s": 162.893,
+        "ok": true
+      },
+      {
+        "i": 70,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（5/10）",
+        "start_s": 162.893,
+        "end_s": 162.994,
+        "ok": true
+      },
+      {
+        "i": 71,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（5/10）",
+        "start_s": 162.994,
+        "end_s": 163.999,
+        "ok": true
+      },
+      {
+        "i": 72,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（5/10）",
+        "start_s": 163.999,
+        "end_s": 167.217,
+        "ok": true
+      },
+      {
+        "i": 73,
+        "op": "wait",
+        "label": "着弾を待つ（5/10）",
+        "start_s": 167.217,
+        "end_s": 171.742,
+        "ok": true
+      },
+      {
+        "i": 74,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（6/10）",
+        "start_s": 171.742,
+        "end_s": 171.843,
+        "ok": true
+      },
+      {
+        "i": 75,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（6/10）",
+        "start_s": 171.843,
+        "end_s": 172.849,
+        "ok": true
+      },
+      {
+        "i": 76,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（6/10）",
+        "start_s": 172.849,
+        "end_s": 177.071,
+        "ok": true
+      },
+      {
+        "i": 77,
+        "op": "wait",
+        "label": "着弾を待つ（6/10）",
+        "start_s": 177.071,
+        "end_s": 181.597,
+        "ok": true
+      },
+      {
+        "i": 78,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（7/10）",
+        "start_s": 181.597,
+        "end_s": 181.698,
+        "ok": true
+      },
+      {
+        "i": 79,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（7/10）",
+        "start_s": 181.698,
+        "end_s": 182.705,
+        "ok": true
+      },
+      {
+        "i": 80,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（7/10）",
+        "start_s": 182.705,
+        "end_s": 187.633,
+        "ok": true
+      },
+      {
+        "i": 81,
+        "op": "wait",
+        "label": "着弾を待つ（7/10）",
+        "start_s": 187.633,
+        "end_s": 192.155,
+        "ok": true
+      },
+      {
+        "i": 82,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（8/10）",
+        "start_s": 192.155,
+        "end_s": 192.256,
+        "ok": true
+      },
+      {
+        "i": 83,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（8/10）",
+        "start_s": 192.256,
+        "end_s": 193.265,
+        "ok": true
+      },
+      {
+        "i": 84,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（8/10）",
+        "start_s": 193.265,
+        "end_s": 196.584,
+        "ok": true
+      },
+      {
+        "i": 85,
+        "op": "wait",
+        "label": "着弾を待つ（8/10）",
+        "start_s": 196.584,
+        "end_s": 201.107,
+        "ok": true
+      },
+      {
+        "i": 86,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（9/10）",
+        "start_s": 201.107,
+        "end_s": 201.208,
+        "ok": true
+      },
+      {
+        "i": 87,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（9/10）",
+        "start_s": 201.208,
+        "end_s": 202.213,
+        "ok": true
+      },
+      {
+        "i": 88,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（9/10）",
+        "start_s": 202.213,
+        "end_s": 207.343,
+        "ok": true
+      },
+      {
+        "i": 89,
+        "op": "wait",
+        "label": "着弾を待つ（9/10）",
+        "start_s": 207.343,
+        "end_s": 211.868,
+        "ok": true
+      },
+      {
+        "i": 90,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（10/10）",
+        "start_s": 211.868,
+        "end_s": 211.968,
+        "ok": true
+      },
+      {
+        "i": 91,
+        "op": "wait",
+        "label": "置き直した標的が着水するのを待つ（10/10）",
+        "start_s": 211.968,
+        "end_s": 212.974,
+        "ok": true
+      },
+      {
+        "i": 92,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（10/10）",
+        "start_s": 212.974,
+        "end_s": 217.097,
+        "ok": true
+      },
+      {
+        "i": 93,
+        "op": "wait",
+        "label": "着弾を待つ（10/10）",
+        "start_s": 217.097,
+        "end_s": 221.623,
+        "ok": true
+      },
+      {
+        "i": 94,
+        "op": "target_despawn",
+        "label": "2 km の標的を片付ける",
+        "start_s": 221.623,
+        "end_s": 221.724,
+        "ok": true
+      },
+      {
+        "i": 95,
+        "op": "despawn",
+        "label": "test calc を片付ける",
+        "start_s": 221.724,
+        "end_s": 221.824,
+        "ok": true
+      }
+    ],
+    "injects": [],
+    "stopped_at_s": null,
+    "stop_latency_s": null,
+    "fire_steps": [
+      {
+        "step": 12,
+        "from": 1,
+        "to": 1,
+        "t_s": 33.427,
+        "steady_wait_s": 3.314
+      },
+      {
+        "step": 16,
+        "from": 2,
+        "to": 2,
+        "t_s": 42.461,
+        "steady_wait_s": 4.517
+      },
+      {
+        "step": 20,
+        "from": 3,
+        "to": 3,
+        "t_s": 51.094,
+        "steady_wait_s": 4.116
+      },
+      {
+        "step": 24,
+        "from": 4,
+        "to": 4,
+        "t_s": 59.729,
+        "steady_wait_s": 4.218
+      },
+      {
+        "step": 28,
+        "from": 5,
+        "to": 5,
+        "t_s": 68.867,
+        "steady_wait_s": 4.721
+      },
+      {
+        "step": 32,
+        "from": 6,
+        "to": 6,
+        "t_s": 77.304,
+        "steady_wait_s": 4.12
+      },
+      {
+        "step": 36,
+        "from": 7,
+        "to": 7,
+        "t_s": 86.242,
+        "steady_wait_s": 4.62
+      },
+      {
+        "step": 40,
+        "from": 8,
+        "to": 8,
+        "t_s": 94.876,
+        "steady_wait_s": 4.318
+      },
+      {
+        "step": 44,
+        "from": 9,
+        "to": 9,
+        "t_s": 102.712,
+        "steady_wait_s": 3.516
+      },
+      {
+        "step": 48,
+        "from": 10,
+        "to": 10,
+        "t_s": 110.748,
+        "steady_wait_s": 3.616
+      },
+      {
+        "step": 56,
+        "from": 11,
+        "to": 11,
+        "t_s": 127.218,
+        "steady_wait_s": 3.818
+      },
+      {
+        "step": 60,
+        "from": 12,
+        "to": 12,
+        "t_s": 137.969,
+        "steady_wait_s": 4.824
+      },
+      {
+        "step": 64,
+        "from": 13,
+        "to": 13,
+        "t_s": 148.821,
+        "steady_wait_s": 5.026
+      },
+      {
+        "step": 68,
+        "from": 14,
+        "to": 14,
+        "t_s": 158.369,
+        "steady_wait_s": 3.719
+      },
+      {
+        "step": 72,
+        "from": 15,
+        "to": 15,
+        "t_s": 167.217,
+        "steady_wait_s": 2.917
+      },
+      {
+        "step": 76,
+        "from": 16,
+        "to": 16,
+        "t_s": 177.071,
+        "steady_wait_s": 3.921
+      },
+      {
+        "step": 80,
+        "from": 17,
+        "to": 17,
+        "t_s": 187.633,
+        "steady_wait_s": 4.626
+      },
+      {
+        "step": 84,
+        "from": 18,
+        "to": 18,
+        "t_s": 196.584,
+        "steady_wait_s": 3.017
+      },
+      {
+        "step": 88,
+        "from": 19,
+        "to": 19,
+        "t_s": 207.343,
+        "steady_wait_s": 4.828
+      },
+      {
+        "step": 92,
+        "from": 20,
+        "to": 20,
+        "t_s": 217.097,
+        "steady_wait_s": 3.821
+      }
+    ]
+  },
+  "values": {
+    "received": 1381,
+    "malformed": 0,
+    "malformed_examples": [],
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 220.76,
+    "full_seconds": 220,
+    "min_per_sec": 6,
+    "max_per_sec": 7,
+    "avg_per_sec": 6.25,
+    "q1_pass": false
+  },
+  "load": {
+    "process": "stormworks64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": 12.0,
+    "cpu_percent_max": 13.4,
+    "memory_mb_max": 2958.5,
+    "samples": 42
+  },
+  "load_samples": [
+    {
+      "t": 46008.7671327,
+      "memory_mb": 2950.2,
+      "cpu_percent": null
+    },
+    {
+      "t": 46014.1258391,
+      "memory_mb": 2951.4,
+      "cpu_percent": 12.1
+    },
+    {
+      "t": 46019.4478431,
+      "memory_mb": 2954.2,
+      "cpu_percent": 11.4
+    },
+    {
+      "t": 46024.754147,
+      "memory_mb": 2954.2,
+      "cpu_percent": 11.0
+    },
+    {
+      "t": 46030.0647622,
+      "memory_mb": 2951.6,
+      "cpu_percent": 11.0
+    },
+    {
+      "t": 46035.3791982,
+      "memory_mb": 2956.1,
+      "cpu_percent": 11.3
+    },
+    {
+      "t": 46040.6905298,
+      "memory_mb": 2956.6,
+      "cpu_percent": 11.0
+    },
+    {
+      "t": 46046.0065913,
+      "memory_mb": 2954.9,
+      "cpu_percent": 10.9
+    },
+    {
+      "t": 46051.3154332,
+      "memory_mb": 2957.4,
+      "cpu_percent": 10.9
+    },
+    {
+      "t": 46056.6242511,
+      "memory_mb": 2958.2,
+      "cpu_percent": 11.1
+    },
+    {
+      "t": 46061.9267793,
+      "memory_mb": 2954.7,
+      "cpu_percent": 10.9
+    },
+    {
+      "t": 46067.2295416,
+      "memory_mb": 2957.3,
+      "cpu_percent": 11.3
+    },
+    {
+      "t": 46072.5285343,
+      "memory_mb": 2957.3,
+      "cpu_percent": 11.3
+    },
+    {
+      "t": 46077.8342553,
+      "memory_mb": 2955.6,
+      "cpu_percent": 11.5
+    },
+    {
+      "t": 46083.1445602,
+      "memory_mb": 2958.5,
+      "cpu_percent": 11.3
+    },
+    {
+      "t": 46088.454171,
+      "memory_mb": 2957.4,
+      "cpu_percent": 11.6
+    },
+    {
+      "t": 46093.7671907,
+      "memory_mb": 2957.6,
+      "cpu_percent": 11.5
+    },
+    {
+      "t": 46099.0689056,
+      "memory_mb": 2957.6,
+      "cpu_percent": 11.7
+    },
+    {
+      "t": 46104.3724348,
+      "memory_mb": 2955.1,
+      "cpu_percent": 11.7
+    },
+    {
+      "t": 46109.6842018,
+      "memory_mb": 2957.9,
+      "cpu_percent": 12.1
+    },
+    {
+      "t": 46115.0591195,
+      "memory_mb": 2957.6,
+      "cpu_percent": 11.8
+    },
+    {
+      "t": 46120.3831553,
+      "memory_mb": 2955.3,
+      "cpu_percent": 12.1
+    },
+    {
+      "t": 46125.7346213,
+      "memory_mb": 2957.3,
+      "cpu_percent": 12.1
+    },
+    {
+      "t": 46131.0692521,
+      "memory_mb": 2957.5,
+      "cpu_percent": 12.6
+    },
+    {
+      "t": 46136.4429916,
+      "memory_mb": 2955.4,
+      "cpu_percent": 12.3
+    },
+    {
+      "t": 46141.8824313,
+      "memory_mb": 2957.4,
+      "cpu_percent": 12.4
+    },
+    {
+      "t": 46147.2690348,
+      "memory_mb": 2957.2,
+      "cpu_percent": 12.0
+    },
+    {
+      "t": 46152.6097984,
+      "memory_mb": 2954.8,
+      "cpu_percent": 12.3
+    },
+    {
+      "t": 46157.963201,
+      "memory_mb": 2954.8,
+      "cpu_percent": 12.9
+    },
+    {
+      "t": 46163.3581631,
+      "memory_mb": 2953.1,
+      "cpu_percent": 13.4
+    },
+    {
+      "t": 46168.7894646,
+      "memory_mb": 2953.2,
+      "cpu_percent": 12.7
+    },
+    {
+      "t": 46174.2551318,
+      "memory_mb": 2953.0,
+      "cpu_percent": 13.3
+    },
+    {
+      "t": 46179.6391836,
+      "memory_mb": 2953.1,
+      "cpu_percent": 13.2
+    },
+    {
+      "t": 46185.0504311,
+      "memory_mb": 2953.4,
+      "cpu_percent": 12.7
+    },
+    {
+      "t": 46190.4437719,
+      "memory_mb": 2953.4,
+      "cpu_percent": 13.0
+    },
+    {
+      "t": 46195.8945788,
+      "memory_mb": 2953.2,
+      "cpu_percent": 12.6
+    },
+    {
+      "t": 46201.2912585,
+      "memory_mb": 2953.3,
+      "cpu_percent": 12.9
+    },
+    {
+      "t": 46206.7203345,
+      "memory_mb": 2954.3,
+      "cpu_percent": 12.8
+    },
+    {
+      "t": 46212.1443625,
+      "memory_mb": 2954.4,
+      "cpu_percent": 12.7
+    },
+    {
+      "t": 46217.5463801,
+      "memory_mb": 2954.4,
+      "cpu_percent": 12.4
+    },
+    {
+      "t": 46222.9481227,
+      "memory_mb": 2954.5,
+      "cpu_percent": 12.4
+    },
+    {
+      "t": 46228.3439458,
+      "memory_mb": 2954.5,
+      "cpu_percent": 12.9
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 1,
+        "op": "setting",
+        "args": [
+          "vehicle_damage",
+          "1"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.061
+      },
+      {
+        "id": 2,
+        "op": "setting",
+        "args": [
+          "infinite_batteries",
+          "1"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.057
+      },
+      {
+        "id": 3,
+        "op": "setting",
+        "args": [
+          "infinite_ammo",
+          "1"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.052
+      },
+      {
+        "id": 4,
+        "op": "weather",
+        "args": [
+          "0",
+          "0",
+          "0"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.096
+      },
+      {
+        "id": 5,
+        "op": "spawn",
+        "args": [
+          "test calc",
+          "12801.41",
+          "7.44",
+          "-13045.247",
+          "3",
+          "3.10249728"
+        ],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.095
+      },
+      {
+        "id": 6,
+        "op": "target",
+        "args": [
+          "claude_target",
+          "1000",
+          "0",
+          "0",
+          "12811.596",
+          "-13049.853",
+          "0.039015",
+          "-0.999239"
+        ],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.082
+      },
+      {
+        "id": 7,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.063
+      },
+      {
+        "id": 8,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.065
+      },
+      {
+        "id": 9,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.096
+      },
+      {
+        "id": 10,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.055
+      },
+      {
+        "id": 11,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.071
+      },
+      {
+        "id": 12,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.094
+      },
+      {
+        "id": 13,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.057
+      },
+      {
+        "id": 14,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.051
+      },
+      {
+        "id": 15,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.073
+      },
+      {
+        "id": 16,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.073
+      },
+      {
+        "id": 17,
+        "op": "target_despawn",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.053
+      },
+      {
+        "id": 18,
+        "op": "target",
+        "args": [
+          "claude_target",
+          "2000",
+          "0",
+          "0",
+          "12811.596",
+          "-13049.853",
+          "0.039015",
+          "-0.999239"
+        ],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.049
+      },
+      {
+        "id": 19,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.072
+      },
+      {
+        "id": 20,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.081
+      },
+      {
+        "id": 21,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.052
+      },
+      {
+        "id": 22,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.096
+      },
+      {
+        "id": 23,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.098
+      },
+      {
+        "id": 24,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.083
+      },
+      {
+        "id": 25,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.078
+      },
+      {
+        "id": 26,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.083
+      },
+      {
+        "id": 27,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.061
+      },
+      {
+        "id": 28,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.059
+      },
+      {
+        "id": 29,
+        "op": "target_despawn",
+        "args": [],
+        "ok": true,
+        "vid": 65,
+        "latency_s": 0.079
+      },
+      {
+        "id": 30,
+        "op": "despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.074
+      }
+    ],
+    "polls": 4614,
+    "damage": {
+      "lost": 0,
+      "vehicles": {
+        "67": {
+          "events": 58,
+          "amount": 79.0,
+          "voxels": 58
+        },
+        "73": {
+          "events": 75,
+          "amount": 131.0,
+          "voxels": 75
+        },
+        "74": {
+          "events": 12,
+          "amount": 18.0,
+          "voxels": 12
+        },
+        "79": {
+          "events": 236,
+          "amount": 354.0,
+          "voxels": 236
+        },
+        "80": {
+          "events": 134,
+          "amount": 183.0,
+          "voxels": 134
+        },
+        "81": {
+          "events": 10,
+          "amount": 14.0,
+          "voxels": 10
+        },
+        "85": {
+          "events": 120,
+          "amount": 175.0,
+          "voxels": 120
+        },
+        "87": {
+          "events": 258,
+          "amount": 376.0,
+          "voxels": 258
+        }
+      }
+    },
+    "target_pose": {
+      "66": {
+        "yaw_min": -0.63,
+        "yaw_max": 0.04,
+        "up_min": 0.9964,
+        "wind_max": 0.0
+      },
+      "67": {
+        "yaw_min": -26.54,
+        "yaw_max": 0.0,
+        "up_min": 0.9983,
+        "wind_max": 0.0
+      },
+      "68": {
+        "yaw_min": -0.01,
+        "yaw_max": 0.86,
+        "up_min": 0.9955,
+        "wind_max": 0.0
+      },
+      "69": {
+        "yaw_min": 0.0,
+        "yaw_max": 0.62,
+        "up_min": 0.9929,
+        "wind_max": 0.0
+      },
+      "70": {
+        "yaw_min": -0.01,
+        "yaw_max": 0.39,
+        "up_min": 0.9971,
+        "wind_max": 0.0
+      },
+      "71": {
+        "yaw_min": -0.18,
+        "yaw_max": 1.14,
+        "up_min": 0.9892,
+        "wind_max": 0.0
+      },
+      "72": {
+        "yaw_min": 0.0,
+        "yaw_max": 0.84,
+        "up_min": 0.9965,
+        "wind_max": 0.0
+      },
+      "73": {
+        "yaw_min": -17.25,
+        "yaw_max": 0.0,
+        "up_min": 0.9848,
+        "wind_max": 0.0
+      },
+      "74": {
+        "yaw_min": -0.01,
+        "yaw_max": 27.53,
+        "up_min": 0.9967,
+        "wind_max": 0.0
+      },
+      "75": {
+        "yaw_min": -0.71,
+        "yaw_max": 0.0,
+        "up_min": 0.9977,
+        "wind_max": 0.0
+      },
+      "76": {
+        "yaw_min": -0.16,
+        "yaw_max": 0.16,
+        "up_min": 0.9975,
+        "wind_max": 0.0
+      },
+      "77": {
+        "yaw_min": -1.21,
+        "yaw_max": 0.01,
+        "up_min": 0.9948,
+        "wind_max": 0.0
+      },
+      "78": {
+        "yaw_min": -0.1,
+        "yaw_max": 0.36,
+        "up_min": 0.9979,
+        "wind_max": 0.0
+      },
+      "79": {
+        "yaw_min": -0.8,
+        "yaw_max": 14.65,
+        "up_min": 0.9383,
+        "wind_max": 0.0
+      },
+      "80": {
+        "yaw_min": -27.02,
+        "yaw_max": 0.97,
+        "up_min": 0.9914,
+        "wind_max": 0.0
+      },
+      "81": {
+        "yaw_min": -1.87,
+        "yaw_max": 23.34,
+        "up_min": 0.9936,
+        "wind_max": 0.0
+      },
+      "82": {
+        "yaw_min": -1.49,
+        "yaw_max": 0.0,
+        "up_min": 0.9926,
+        "wind_max": 0.0
+      },
+      "83": {
+        "yaw_min": -0.11,
+        "yaw_max": 0.11,
+        "up_min": 0.994,
+        "wind_max": 0.0
+      },
+      "84": {
+        "yaw_min": -0.04,
+        "yaw_max": 2.21,
+        "up_min": 0.9943,
+        "wind_max": 0.0
+      },
+      "85": {
+        "yaw_min": -0.1,
+        "yaw_max": 28.7,
+        "up_min": 0.8935,
+        "wind_max": 0.0
+      },
+      "86": {
+        "yaw_min": 0.0,
+        "yaw_max": 0.56,
+        "up_min": 0.9967,
+        "wind_max": 0.0
+      },
+      "87": {
+        "yaw_min": -0.46,
+        "yaw_max": 2.61,
+        "up_min": 0.9534,
+        "wind_max": 0.0
+      }
+    }
+  },
+  "fcs": {
+    "by_range": [
+      {
+        "range_m": 1000,
+        "shots": 10,
+        "hits": 3,
+        "aim_bias_m": -0.127,
+        "aim_sd_m": 0.944,
+        "impact_yaw_min": -2.11,
+        "impact_yaw_max": 2.44
+      },
+      {
+        "range_m": 2000,
+        "shots": 10,
+        "hits": 5,
+        "aim_bias_m": 0.254,
+        "aim_sd_m": 1.594,
+        "impact_yaw_min": -2.15,
+        "impact_yaw_max": 2.99
+      }
+    ],
+    "shots": [
+      {
+        "n": 1,
+        "t": 46042.386,
+        "range": 1001.9,
+        "diff_deg": -0.00821,
+        "aim_miss_m": -0.144,
+        "pred_m": 0.035,
+        "tof": 1.356,
+        "hit": true,
+        "impact_yaw": -2.11,
+        "impact_up": 0.9999
+      },
+      {
+        "n": 2,
+        "t": 46051.355,
+        "range": 1002.1,
+        "diff_deg": 0.00029,
+        "aim_miss_m": 0.005,
+        "pred_m": 0.003,
+        "tof": 1.356,
+        "hit": false,
+        "impact_yaw": 0.81,
+        "impact_up": 0.9989
+      },
+      {
+        "n": 3,
+        "t": 46059.995,
+        "range": 1001.9,
+        "diff_deg": 0.00401,
+        "aim_miss_m": 0.07,
+        "pred_m": 0.024,
+        "tof": 1.356,
+        "hit": false,
+        "impact_yaw": 0.15,
+        "impact_up": 0.9994
+      },
+      {
+        "n": 4,
+        "t": 46068.647,
+        "range": 1002.0,
+        "diff_deg": 0.00125,
+        "aim_miss_m": 0.022,
+        "pred_m": 0.004,
+        "tof": 1.356,
+        "hit": false,
+        "impact_yaw": 0.35,
+        "impact_up": 0.9996
+      },
+      {
+        "n": 5,
+        "t": 46077.767,
+        "range": 1002.0,
+        "diff_deg": 0.00087,
+        "aim_miss_m": 0.015,
+        "pred_m": 0.01,
+        "tof": 1.356,
+        "hit": false,
+        "impact_yaw": 1.14,
+        "impact_up": 0.9975
+      },
+      {
+        "n": 6,
+        "t": 46086.256,
+        "range": 1002.0,
+        "diff_deg": -0.09383,
+        "aim_miss_m": -1.641,
+        "pred_m": 29.454,
+        "tof": 1.356,
+        "hit": false,
+        "impact_yaw": 0.71,
+        "impact_up": 0.9986
+      },
+      {
+        "n": 7,
+        "t": 46095.2,
+        "range": 1002.0,
+        "diff_deg": -0.08066,
+        "aim_miss_m": -1.411,
+        "pred_m": 25.01,
+        "tof": 1.356,
+        "hit": true,
+        "impact_yaw": -0.25,
+        "impact_up": 0.9973
+      },
+      {
+        "n": 8,
+        "t": 46103.829,
+        "range": 1002.0,
+        "diff_deg": 0.00185,
+        "aim_miss_m": 0.032,
+        "pred_m": 0.022,
+        "tof": 1.356,
+        "hit": true,
+        "impact_yaw": 2.44,
+        "impact_up": 0.9986
+      },
+      {
+        "n": 9,
+        "t": 46111.68,
+        "range": 1002.1,
+        "diff_deg": -0.00439,
+        "aim_miss_m": -0.077,
+        "pred_m": 0.056,
+        "tof": 1.356,
+        "hit": false,
+        "impact_yaw": -0.52,
+        "impact_up": 0.9987
+      },
+      {
+        "n": 10,
+        "t": 46119.663,
+        "range": 1002.0,
+        "diff_deg": 0.10642,
+        "aim_miss_m": 1.861,
+        "pred_m": 33.942,
+        "tof": 1.356,
+        "hit": false,
+        "impact_yaw": -0.05,
+        "impact_up": 0.9975
+      },
+      {
+        "n": 11,
+        "t": 46136.161,
+        "range": 2001.9,
+        "diff_deg": 0.084,
+        "aim_miss_m": 2.935,
+        "pred_m": 53.069,
+        "tof": 2.978,
+        "hit": false,
+        "impact_yaw": 0.14,
+        "impact_up": 0.9986
+      },
+      {
+        "n": 12,
+        "t": 46146.888,
+        "range": 2001.8,
+        "diff_deg": 0.00083,
+        "aim_miss_m": 0.029,
+        "pred_m": 0.03,
+        "tof": 2.978,
+        "hit": true,
+        "impact_yaw": 1.41,
+        "impact_up": 0.9981
+      },
+      {
+        "n": 13,
+        "t": 46157.752,
+        "range": 2002.0,
+        "diff_deg": -0.07493,
+        "aim_miss_m": -2.618,
+        "pred_m": 45.48,
+        "tof": 2.978,
+        "hit": true,
+        "impact_yaw": -2.15,
+        "impact_up": 0.9963
+      },
+      {
+        "n": 14,
+        "t": 46167.349,
+        "range": 2001.9,
+        "diff_deg": -0.00494,
+        "aim_miss_m": -0.173,
+        "pred_m": 0.009,
+        "tof": 2.978,
+        "hit": true,
+        "impact_yaw": 0.95,
+        "impact_up": 0.9962
+      },
+      {
+        "n": 15,
+        "t": 46176.142,
+        "range": 2001.9,
+        "diff_deg": -0.00328,
+        "aim_miss_m": -0.115,
+        "pred_m": 0.025,
+        "tof": 2.978,
+        "hit": false,
+        "impact_yaw": -1.45,
+        "impact_up": 0.9959
+      },
+      {
+        "n": 16,
+        "t": 46186.042,
+        "range": 2001.9,
+        "diff_deg": -0.00226,
+        "aim_miss_m": -0.079,
+        "pred_m": 0.008,
+        "tof": 2.978,
+        "hit": false,
+        "impact_yaw": -0.11,
+        "impact_up": 0.9965
+      },
+      {
+        "n": 17,
+        "t": 46196.597,
+        "range": 2002.0,
+        "diff_deg": -0.00635,
+        "aim_miss_m": -0.222,
+        "pred_m": 0.075,
+        "tof": 2.978,
+        "hit": false,
+        "impact_yaw": 2.21,
+        "impact_up": 0.9959
+      },
+      {
+        "n": 18,
+        "t": 46205.562,
+        "range": 2002.0,
+        "diff_deg": 0.08071,
+        "aim_miss_m": 2.82,
+        "pred_m": 50.406,
+        "tof": 2.978,
+        "hit": true,
+        "impact_yaw": 2.99,
+        "impact_up": 0.9941
+      },
+      {
+        "n": 19,
+        "t": 46216.267,
+        "range": 2002.0,
+        "diff_deg": -0.00054,
+        "aim_miss_m": -0.019,
+        "pred_m": 0.025,
+        "tof": 2.978,
+        "hit": false,
+        "impact_yaw": 0.54,
+        "impact_up": 0.9991
+      },
+      {
+        "n": 20,
+        "t": 46226.018,
+        "range": 2001.9,
+        "diff_deg": -0.00053,
+        "aim_miss_m": -0.019,
+        "pred_m": 0.025,
+        "tof": 2.978,
+        "hit": true,
+        "impact_yaw": 0.0,
+        "impact_up": 0.9992
+      }
+    ]
+  }
+}
