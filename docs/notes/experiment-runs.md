@@ -284,3 +284,8 @@
   `tools/put_lua.py` で test calc のファイルに書いた（前のファイルは `backup\vehicles\test calc-20261109-231551.xml`）。ゲームではまだ試していない。
 - 本人：標的の重心が下にあるせいで、浮力で動く。固定できないか。
   claude_target は重りのブロック 78・フロート 18（landing_float 6・buoyancy_float_wedge 12）。test calc の部品には oil_rig_well_head と bool の定数がある。
+- 本人：test calc を固定しているのは oil rig well head。→ 部品の定義では「地形に固定されると」とあり、海の上の標的には海底に届かないと使えない。
+- 調べたこと：ゲームのアドオン（default_dock_bollards）やワークショップのアドオンは、機体のファイルをアドオンのフォルダに置き（vehicle_N.xml）、
+  playlist の部品に vehicle_is_static="true" を付けて server.spawnAddonVehicle で出す。static の機体は動かない。
+- 直したこと：アドオンに claude_target を vehicle_1.xml として入れ、場所 CLAUDE_TARGET_STATIC の static の部品にした。target の static で、これを出す（置き直しも同じ）。
+  場所を固定した手順書は、標的を static・高さ -0.15 m（浮かんでいたときの高さ）にした。アドオンはまだゲームに置いていない。

@@ -10,6 +10,8 @@
 --   or "ok|<id>|target|<save_name>|<distance>|<y>|<same>" (place a target <distance> m ahead of where the player looks,
 --   at height y; same=1: from the same place and in the same direction as the previous target)
 --   or "ok|<id>|target|<save_name>|<distance>|<y>|0|<bx>|<bz>|<dx>|<dz>" (from world point (bx, bz) in direction (dx, dz))
+--   <same> is a bit field: 1 = same place and direction, 2 = static target (the addon's own vehicle_1.xml, location
+--   CLAUDE_TARGET_STATIC, spawned with server.spawnAddonVehicle: it does not float, drift or turn; save_name is ignored)
 --   or "ok|<id>|target_despawn" or "ok|<id>|weather|<fog>|<rain>|<wind>" (0-1; turns the override_weather setting on,
 --   checks it every WEATHER_EVERY ticks with server.getWeather and sets it again only when it differs:
 --   a change right after loading the world did not always take)
@@ -45,6 +47,8 @@ tgid=-1
 tmat=nil
 tbase=nil
 tname=nil
+tstatic=false
+STATIC_LOCATION="CLAUDE_TARGET_STATIC"
 -- damage events not yet received by the relay; sentN of them went out with the request now waiting
 dmg={}
 sentN=0
@@ -207,7 +211,8 @@ function run(op,a)
 			base={tonumber(a[5]),tonumber(a[6]),tonumber(a[7]),tonumber(a[8])}
 			if base[1]==nil or base[2]==nil or base[3]==nil or base[4]==nil then return false end
 		end
-		return spawnTarget(a[1],tonumber(a[2]),tonumber(a[3]),a[4]=="1",base)
+		local f=tonumber(a[4]) or 0
+		return spawnTarget(a[1],tonumber(a[2]),tonumber(a[3]),f%2==1,base,f>=2)
 	elseif op=="target_despawn" then
 		return despawnTarget()
 	elseif op=="target_reset" then
@@ -289,7 +294,34 @@ function despawn(quiet)
 end
 
 -- a target placed ahead of where the player is looking (horizontal direction only), at world height y
-function spawnTarget(name,dist,y,same,base)
+-- the component id of the static target in this addon's playlist, or nil
+function staticTargetId()
+	local ai=server.getAddonIndex()
+	local d=server.getAddonData(ai)
+	if d==nil then return nil end
+	for li=0,(d.location_count or 0)-1 do
+		local l=server.getLocationData(ai,li)
+		if l and l.name==STATIC_LOCATION and (l.component_count or 0)>0 then
+			local c=server.getLocationComponentData(ai,li,0)
+			if c then return c.id,ai end
+		end
+	end
+	return nil
+end
+
+function spawnTargetVehicle(m,name,static)
+	if static then
+		local cid,ai=staticTargetId()
+		if cid==nil then
+			server.announce("[Claude]","static target not found in the addon (location "..STATIC_LOCATION..")")
+			return nil,false
+		end
+		return server.spawnAddonVehicle(m,ai,cid)
+	end
+	return server.spawnVehicle(m,name)
+end
+
+function spawnTarget(name,dist,y,same,base,static)
 	if name==nil or dist==nil or y==nil then return false end
 	if base then
 		local n=math.sqrt(base[3]*base[3]+base[4]*base[4])
@@ -309,7 +341,7 @@ function spawnTarget(name,dist,y,same,base)
 	local x,z=tbase[1]+dist*tbase[3],tbase[2]+dist*tbase[4]
 	despawnTarget(true)
 	local mt=matrix.translation(x,y,z)
-	local v,ok,_,g=server.spawnVehicle(mt,name)
+	local v,ok,_,g=spawnTargetVehicle(mt,name,static)
 	if not ok then
 		server.announce("[Claude]","target spawn failed: "..name)
 		return false
@@ -318,6 +350,7 @@ function spawnTarget(name,dist,y,same,base)
 	tgid=g or -1
 	tmat=mt
 	tname=name
+	tstatic=static and true or false
 	okT=t
 	hitN=0
 	hitShownN=0
@@ -329,9 +362,9 @@ end
 
 function renewTarget()
 	if tvid<0 or tmat==nil or tname==nil then return false end
-	local m,name=tmat,tname
+	local m,name,static=tmat,tname,tstatic
 	despawnTarget(true)
-	local v,ok,_,g=server.spawnVehicle(m,name)
+	local v,ok,_,g=spawnTargetVehicle(m,name,static)
 	if not ok then
 		server.announce("[Claude]","target spawn failed: "..name)
 		return false
@@ -340,6 +373,7 @@ function renewTarget()
 	tgid=g or -1
 	tmat=m
 	tname=name
+	tstatic=static
 	hitN=0
 	hitShownN=0
 	g_savedata.tvid=tvid

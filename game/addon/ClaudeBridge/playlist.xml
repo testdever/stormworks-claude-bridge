@@ -1,9 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<playlist path_id="app_data/data/missions/ClaudeBridge" folder_path="data/missions/ClaudeBridge" file_store="4" name="Claude Bridge">
-	<locations location_id_counter="1" component_id_counter="0">
+<playlist folder_path="data/missions/ClaudeBridge" file_store="3" name="Claude Bridge">
+	<locations location_id_counter="2" component_id_counter="1">
 		<locations>
 			<l id="1" tile="data/tiles/island12.xml" name="CLAUDE_BRIDGE" is_env_mod="false" env_mod_spawn_num="1">
 				<components/>
+			</l>
+			<l id="2" tile="data/tiles/island12.xml" name="CLAUDE_TARGET_STATIC" is_env_mod="false" env_mod_spawn_num="1">
+				<components>
+					<c component_type="3" id="1" dynamic_object_type="2" character_outfit_category="11" character_type="1" vehicle_file_name="data/missions_working/vehicle_1.xml" vehicle_file_store="4" vehicle_is_static="true" vehicle_is_no_sleep="true" vehicle_is_editable="false" vehicle_is_show_on_map="false">
+						<spawn_transform/>
+						<spawn_bounds>
+							<min x="-1" y="-1" z="-1"/>
+							<max x="1" y="1" z="1"/>
+						</spawn_bounds>
+						<graph_links/>
+					</c>
+				</components>
 			</l>
 		</locations>
 	</locations>

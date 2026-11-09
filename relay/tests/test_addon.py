@@ -161,6 +161,7 @@ class FakeServerApi:
         self.announces: list[str] = []
         self.spawned_at: list[tuple] = []
         self.spawned_yaw: list = []
+        self.addon_spawns: list[tuple] = []
         self.moved_to: list[tuple] = []
         self.player_moves: list[tuple] = []
         self.players = [{"id": 0, "name": "p", "steam_id": "76561198000000000"}]
@@ -189,6 +190,12 @@ class FakeServerApi:
             "setWeather": lambda f, r, w: (self.weather.append((f, r, w)),
                                            self.now_weather.update({"fog": f, "rain": r, "wind": w})),
             "getWeather": lambda m: self.lua.table_from(self.now_weather),
+            "getAddonIndex": lambda *a: (7, True),
+            "getAddonData": lambda ai: self.lua.table_from({"location_count": 2}),
+            "getLocationData": lambda ai, li: self.lua.table_from(
+                {"name": ["CLAUDE_BRIDGE", "CLAUDE_TARGET_STATIC"][int(li)], "component_count": int(li)}),
+            "getLocationComponentData": lambda ai, li, ci: self.lua.table_from({"id": 1}),
+            "spawnAddonVehicle": self.spawn_addon,
             "setGameSetting": lambda name, v: self.settings.__setitem__(name, bool(v)),
             "getGameSettings": lambda: self.lua.table_from(self.settings),
         })
@@ -201,6 +208,10 @@ class FakeServerApi:
         self.spawned_at.append((m["x"], m["y"], m["z"]))
         self.spawned_yaw.append(m["yaw"])
         return self.next_id, True, self.lua.table_from({1: self.next_id}), self.next_id + 1000
+
+    def spawn_addon(self, m, addon_index, component_id):
+        self.addon_spawns.append((addon_index, component_id))
+        return self.spawn(m, f"addon:{component_id}")
 
     def _despawn(self, vid):
         return self.vehicles.pop(vid, None) is not None
@@ -529,6 +540,18 @@ class AddonLuaTest(unittest.TestCase):
         b = self.ops.target("claude_target", 2000, 0, same_direction=True)
         self.tick(6)
         self.assertEqual(self.api.spawned_at[-1], (500.0, 0.0, -2300.0))
+
+    def test_static_target_comes_from_the_addon(self):
+        self.tick(3)
+        a = self.ops.target("claude_target", 1000, 0, base=(500.0, -300.0), direction=(0.0, -1.0), static=True)
+        self.tick(6)
+        self.assertTrue(self.ops.get(a)["ok"])
+        self.assertEqual(self.api.addon_spawns, [(7, 1)])
+        self.assertEqual(self.api.spawned_at, [(500.0, 0.0, -1300.0)])
+        b = self.ops.target_renew()
+        self.tick(6)
+        self.assertTrue(self.ops.get(b)["ok"])
+        self.assertEqual(self.api.addon_spawns, [(7, 1), (7, 1)], "置き直しても動かない標的のまま")
 
     def test_spawn_relative_to_the_player_is_not_turned(self):
         self.tick(3)

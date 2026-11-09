@@ -366,13 +366,16 @@ class AddonOps:
         return self._issue("move_player", [format_value(float(v)) for v in pos], t)
 
     def target(self, name: str, distance: float, y: float, same_direction: bool = False, t: float | None = None,
-               base: tuple[float, float] | None = None, direction: tuple[float, float] | None = None) -> int:
+               base: tuple[float, float] | None = None, direction: tuple[float, float] | None = None,
+               static: bool = False) -> int:
         """プレイヤーが向いている方向（水平）の distance m 先、高さ y に標的を置く。
         same_direction なら、前の標的と同じ場所から同じ方向に置く（その間にプレイヤーが向きを変えてもよい）。
-        base（世界の x, z）と direction（x, z）を渡すと、プレイヤーによらずその点からその方向に置く。"""
+        base（世界の x, z）と direction（x, z）を渡すと、プレイヤーによらずその点からその方向に置く。
+        static なら、アドオンに入れた標的（vehicle_1.xml）を動かない機体として置く（浮力で揺れず、流されず、回らない。name は使わない）。"""
         if not name or any(c in name for c in "|\r\n"):
             raise ValueError("標的の名前が空か、使えない文字（| や改行）を含む")
-        args = [name, format_value(float(distance)), format_value(float(y)), "1" if same_direction else "0"]
+        args = [name, format_value(float(distance)), format_value(float(y)),
+                str((1 if same_direction else 0) + (2 if static else 0))]
         if base is not None or direction is not None:
             if base is None or direction is None or len(base) != 2 or len(direction) != 2:
                 raise ValueError("標的の base と direction は、どちらも [x, z]")
@@ -1011,7 +1014,7 @@ class ExperimentRunner:
         elif op == "target":
             self._op = self.ops.target(s["vehicle"], float(s["distance"]), float(s["y"]),
                                        same_direction=bool(s.get("same_direction")), t=now,
-                                       base=s.get("from"), direction=s.get("dir"))
+                                       base=s.get("from"), direction=s.get("dir"), static=bool(s.get("static")))
         elif op == "target_despawn":
             self._safe_off(now)
             self._op = self.ops.target_despawn(t=now)
