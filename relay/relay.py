@@ -386,6 +386,12 @@ class AddonOps:
             raise ValueError("霧・雨・風は 0〜1")
         return self._issue("weather", [format_value(v) for v in vals], t)
 
+    def setting(self, name: str, on: bool, t: float | None = None) -> int:
+        """ゲームの設定を変える（server.setGameSetting。vehicle_damage、infinite_batteries など、オンかオフのもの）。"""
+        if not name or not all(c.isalnum() or c == "_" for c in name):
+            raise ValueError("設定の名前は英数字と _ だけ")
+        return self._issue("setting", [name, "1" if on else "0"], t)
+
     def lift(self, dy: float = 15.0, t: float | None = None) -> int:
         """置いている機体を dy メートル持ち上げる（物理が進んでいれば、そこから落ちる）。"""
         return self._issue("lift", [format_value(float(dy))], t)
@@ -758,14 +764,15 @@ class ExperimentRunner:
     """
 
     OPS = {"move_player", "spawn", "wait", "set", "despawn", "inject", "target", "target_despawn", "weather",
-           "aim_target", "fire", "target_reset", "target_renew"}
+           "aim_target", "fire", "target_reset", "target_renew", "setting"}
     FOLLOW_INTERVAL = 0.5   # 標的の座標を渡し直す間隔の下限（秒）
     FOLLOW_MOVE = 0.02      # これより動いたら渡し直す（m）
     STEP_TIMEOUT = 10.0
     FAIL_TEXT = {"move_player": "プレイヤーを移せなかった", "spawn": "機体を置けなかった",
                  "despawn": "機体を片付けられなかった", "target": "標的を置けなかった",
                  "target_despawn": "標的を片付けられなかった", "weather": "天気を変えられなかった",
-                 "target_reset": "標的を戻せなかった", "target_renew": "標的を置き直せなかった"}
+                 "target_reset": "標的を戻せなかった", "target_renew": "標的を置き直せなかった",
+                 "setting": "ゲームの設定を変えられなかった"}
     CLEANUP_TIMEOUT = 5.0
 
     def __init__(self, ops: AddonOps, recorder: Recorder, commander: Commander, script: dict):
@@ -854,6 +861,8 @@ class ExperimentRunner:
                 raise ValueError(f"{i}番目の target には vehicle・distance（m）・y（高さ）が要る")
             if op == "weather" and not all(k in s for k in ("fog", "rain", "wind")):
                 raise ValueError(f"{i}番目の weather には fog・rain・wind（0〜1）が要る")
+            if op == "setting" and not (s.get("name") and isinstance(s.get("on"), bool)):
+                raise ValueError(f"{i}番目の setting には name（設定の名前）と on（true / false）が要る")
             if op == "fire" and int(s.get("shots", 0)) < 1:
                 raise ValueError(f"{i}番目の fire には shots（撃つ数、1以上）が要る")
             if op == "fire" and "steady" in s:
@@ -1010,6 +1019,8 @@ class ExperimentRunner:
             self._follow_t = -1e9
         elif op == "weather":
             self._op = self.ops.weather(s["fog"], s["rain"], s["wind"], t=now)
+        elif op == "setting":
+            self._op = self.ops.setting(s["name"], s["on"], t=now)
         elif op == "set":
             self.commander.issue({int(k): float(v) for k, v in s["outputs"].items()}, t=now)
         elif op == "despawn":

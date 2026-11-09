@@ -1,7 +1,26 @@
 {
   "name": "FCS V-07（手放し）：1 km・2 km で 10 発ずつ、撃った瞬間の照準のずれと命中",
-  "note": "test calc（陸に固定した Battle Cannon と FCS）用。つなぎのマイコンは game/fcs_bridge.lua。標的の座標は ch1 = X、ch2 = Z、ch3 = Y（test calc の並び）、射撃許可は指示 5（つなぎのマイコンの on/off 出力 1 → FCS の allow fire）。1発ごとに、置いた場所に新しい標的を出し直してから撃つ（当たった標的は戻しても回り続けるため）。本人は新しいワールドで陸に立ち、撃ちたい海の方向を向くだけ（test calc は手順書が出して片付ける。手で出した test calc があると、2台から値が届いて止まる）。標的は海面の高さ（y = 0）に置く（2 m から落とすと 2〜3 秒上下に揺れ、FCS がそれを追って外れた）。撃つのは、標的の位置が 1 秒の間 0.3 m 以内に収まってから",
+  "note": "test calc（陸に固定した Battle Cannon と FCS）用。つなぎのマイコンは game/fcs_bridge.lua。標的の座標は ch1 = X、ch2 = Z、ch3 = Y（test calc の並び）、射撃許可は指示 5（つなぎのマイコンの on/off 出力 1 → FCS の allow fire）。1発ごとに、置いた場所に新しい標的を出し直してから撃つ（当たった標的は戻しても回り続けるため）。本人は Claude Bridge を有効にしたワールドで陸に立ち、撃ちたい海の方向を向くだけ（test calc は手順書が出して片付ける。手で出した test calc があると、2台から値が届いて止まる）。標的は海面の高さ（y = 0）に置く（2 m から落とすと 2〜3 秒上下に揺れ、FCS がそれを追って外れた）。撃つのは、標的の位置が 1 秒の間 0.3 m 以内に収まってから。機体の傷・電気の無限・天気（波）は手順書が設定する",
   "steps": [
+    {
+      "op": "setting",
+      "name": "vehicle_damage",
+      "on": true,
+      "label": "機体が傷つくようにする（当たりを数えるため）"
+    },
+    {
+      "op": "setting",
+      "name": "infinite_batteries",
+      "on": true,
+      "label": "電気を無限にする"
+    },
+    {
+      "op": "weather",
+      "fog": 0,
+      "rain": 0,
+      "wind": 0,
+      "label": "天気を穏やかにする（天気の上書きをオンにして、霧・雨・風を 0）"
+    },
     {
       "op": "spawn",
       "vehicle": "test calc",
@@ -14,20 +33,8 @@
     },
     {
       "op": "wait",
-      "seconds": 15,
-      "label": "test calc が着地して固定され、FCS が動き出すのを待つ"
-    },
-    {
-      "op": "weather",
-      "fog": 0,
-      "rain": 0,
-      "wind": 0,
-      "label": "天気を穏やかにする（霧・雨・風を 0）"
-    },
-    {
-      "op": "wait",
-      "seconds": 1,
-      "label": "天気が変わるのを待つ"
+      "seconds": 20,
+      "label": "test calc が着地して固定され、FCS が動き出し、波が収まるのを待つ"
     },
     {
       "op": "target",

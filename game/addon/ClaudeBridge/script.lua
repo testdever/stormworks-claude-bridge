@@ -7,7 +7,8 @@
 --   rel=1: x,y,z are offsets from the first player's position
 --   or "ok|<id>|target|<save_name>|<distance>|<y>|<same>" (place a target <distance> m ahead of where the player looks,
 --   at height y; same=1: from the same place and in the same direction as the previous target)
---   or "ok|<id>|target_despawn" or "ok|<id>|weather|<fog>|<rain>|<wind>" (0-1)
+--   or "ok|<id>|target_despawn" or "ok|<id>|weather|<fog>|<rain>|<wind>" (0-1; turns the override_weather setting on)
+--   or "ok|<id>|setting|<name>|<0 or 1>" (server.setGameSetting, e.g. vehicle_damage, infinite_batteries)
 --   or "ok|<id>|target_reset" (put the target back where and how it was placed; it is unloaded and reloaded,
 --   but keeps spinning and moving if it was hit)
 --   or "ok|<id>|target_renew" (replace the target with a fresh one where it was placed: no spin, no speed, no damage)
@@ -194,9 +195,15 @@ function run(op,a)
 	elseif op=="weather" then
 		local f,r,w=tonumber(a[1]),tonumber(a[2]),tonumber(a[3])
 		if f==nil or r==nil or w==nil then return false end
+		server.setGameSetting("override_weather",true)
 		server.setWeather(f,r,w)
 		server.announce("[Claude]",string.format("weather fog=%.2f rain=%.2f wind=%.2f",f,r,w))
 		return true
+	elseif op=="setting" then
+		if a[1]==nil or (a[2]~="0" and a[2]~="1") then return false end
+		server.setGameSetting(a[1],a[2]=="1")
+		local now=server.getGameSettings()[a[1]]
+		return now==(a[2]=="1")
 	end
 	return false
 end

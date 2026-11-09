@@ -163,6 +163,7 @@ class FakeServerApi:
         self.player_moves: list[tuple] = []
         self.players = [{"id": 0, "name": "p", "steam_id": "76561198000000000"}]
         self.weather: list[tuple] = []
+        self.settings: dict[str, bool] = {}
         self.group_moves: list[tuple] = []
 
     def table(self):
@@ -183,6 +184,8 @@ class FakeServerApi:
             "announce": lambda name, msg: self.announces.append(str(msg)),
             "getPlayerLookDirection": lambda pid: (0.6, -0.2, 0.8, True),
             "setWeather": lambda f, r, w: self.weather.append((f, r, w)),
+            "setGameSetting": lambda name, v: self.settings.__setitem__(name, bool(v)),
+            "getGameSettings": lambda: self.lua.table_from(self.settings),
         })
 
     def spawn(self, m, name):
@@ -509,6 +512,24 @@ class AddonLuaTest(unittest.TestCase):
         a = self.ops.target_reset()
         self.tick(6)
         self.assertFalse(self.ops.get(a)["ok"])
+
+    def test_weather_turns_the_override_on(self):
+        self.tick(3)
+        a = self.ops.weather(0, 0, 0)
+        self.tick(6)
+        self.assertTrue(self.ops.get(a)["ok"])
+        self.assertTrue(self.api.settings.get("override_weather"), "天気の上書きをオンにしないと効かない")
+
+    def test_game_setting(self):
+        self.tick(3)
+        a = self.ops.setting("infinite_batteries", True)
+        b = self.ops.setting("vehicle_damage", False)
+        self.tick(12)
+        self.assertTrue(self.ops.get(a)["ok"])
+        self.assertTrue(self.ops.get(b)["ok"])
+        self.assertEqual(self.api.settings, {"infinite_batteries": True, "vehicle_damage": False})
+        with self.assertRaises(ValueError):
+            self.ops.setting("bad|name", True)
 
     def test_weather(self):
         self.tick(3)
