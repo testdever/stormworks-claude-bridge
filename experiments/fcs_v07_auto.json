@@ -1,7 +1,22 @@
 {
   "name": "FCS V-07（手放し）：1 km・2 km で 10 発ずつ、撃った瞬間の照準のずれと命中",
-  "note": "test calc（陸に固定した Battle Cannon と FCS）用。つなぎのマイコンは game/fcs_bridge.lua。標的の座標は ch1 = X、ch2 = Z、ch3 = Y（test calc の並び）、射撃許可は指示 5（つなぎのマイコンの on/off 出力 1 → FCS の allow fire）。1発ごとに、置いた場所に新しい標的を出し直してから撃つ（当たった標的は戻しても回り続けるため）。本人は始めに撃ちたい海の方向を向くだけ。標的は海面の高さ（y = 0）に置く（2 m から落とすと 2〜3 秒上下に揺れ、FCS がそれを追って外れた）。撃つのは、標的の位置が 1 秒の間 0.3 m 以内に収まってから",
+  "note": "test calc（陸に固定した Battle Cannon と FCS）用。つなぎのマイコンは game/fcs_bridge.lua。標的の座標は ch1 = X、ch2 = Z、ch3 = Y（test calc の並び）、射撃許可は指示 5（つなぎのマイコンの on/off 出力 1 → FCS の allow fire）。1発ごとに、置いた場所に新しい標的を出し直してから撃つ（当たった標的は戻しても回り続けるため）。本人は新しいワールドで陸に立ち、撃ちたい海の方向を向くだけ（test calc は手順書が出して片付ける。手で出した test calc があると、2台から値が届いて止まる）。標的は海面の高さ（y = 0）に置く（2 m から落とすと 2〜3 秒上下に揺れ、FCS がそれを追って外れた）。撃つのは、標的の位置が 1 秒の間 0.3 m 以内に収まってから",
   "steps": [
+    {
+      "op": "spawn",
+      "vehicle": "test calc",
+      "look_offset": [
+        10,
+        2,
+        -5
+      ],
+      "label": "test calc を、向いている方向の右 10 m・後ろ 5 m に出す"
+    },
+    {
+      "op": "wait",
+      "seconds": 15,
+      "label": "test calc が着地して固定され、FCS が動き出すのを待つ"
+    },
     {
       "op": "weather",
       "fog": 0,
@@ -11,8 +26,8 @@
     },
     {
       "op": "wait",
-      "seconds": 10,
-      "label": "撃ちたい方向を向いて待つ"
+      "seconds": 1,
+      "label": "天気が変わるのを待つ"
     },
     {
       "op": "target",
@@ -126,6 +141,10 @@
     {
       "op": "target_despawn",
       "label": "2 km の標的を片付ける"
+    },
+    {
+      "op": "despawn",
+      "label": "test calc を片付ける"
     }
   ]
 }

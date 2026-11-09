@@ -344,10 +344,13 @@ class AddonOps:
                               "done_t": None, "ok": None, "vid": None})
             return oid
 
-    def spawn(self, name: str, pos: tuple[float, float, float], relative: bool, t: float | None = None) -> int:
+    def spawn(self, name: str, pos: tuple[float, float, float], relative: bool, t: float | None = None,
+              look: bool = False) -> int:
+        """relative：プレイヤーの位置からの差（世界の向き）。look：プレイヤーの向きで [右, 上, 前] の差。"""
         if not name or any(c in name for c in "|\r\n"):
             raise ValueError("機体の名前が空か、使えない文字（| や改行）を含む")
-        args = [name, *(format_value(float(v)) for v in pos), "1" if relative else "0"]
+        mode = "2" if look else ("1" if relative else "0")
+        args = [name, *(format_value(float(v)) for v in pos), mode]
         return self._issue("spawn", args, t)
 
     def despawn(self, t: float | None = None) -> int:
@@ -841,8 +844,8 @@ class ExperimentRunner:
                 raise ValueError(f"{i}番目の move_player には pos:[x,y,z] が要る")
             if op == "spawn" and not (s.get("vehicle") or script.get("vehicle")):
                 raise ValueError(f"{i}番目の spawn には vehicle（機体の保存名）が要る")
-            if op == "spawn" and len(s.get("offset", s.get("pos", [0, 0, 0]))) != 3:
-                raise ValueError(f"{i}番目の spawn の offset / pos は [x,y,z]")
+            if op == "spawn" and len(s.get("offset", s.get("pos", s.get("look_offset", [0, 0, 0])))) != 3:
+                raise ValueError(f"{i}番目の spawn の offset / pos は [x,y,z]、look_offset は [右, 上, 前]")
             if op == "wait" and float(s.get("seconds", -1)) < 0:
                 raise ValueError(f"{i}番目の wait には seconds が要る")
             if op == "set" and not s.get("outputs"):
@@ -979,6 +982,8 @@ class ExperimentRunner:
             name = s.get("vehicle") or self.script.get("vehicle")
             if "pos" in s:
                 self._op = self.ops.spawn(name, tuple(s["pos"]), relative=False, t=now)
+            elif "look_offset" in s:
+                self._op = self.ops.spawn(name, tuple(s["look_offset"]), relative=True, look=True, t=now)
             else:
                 self._op = self.ops.spawn(name, tuple(s.get("offset", [0, 3, 15])), relative=True, t=now)
         elif op == "target":

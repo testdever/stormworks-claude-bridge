@@ -487,6 +487,17 @@ class AddonLuaTest(unittest.TestCase):
         self.assertTrue(self.ops.get(b)["ok"])
         self.assertEqual(list(self.api.vehicles), [103])
 
+    def test_spawn_relative_to_where_the_player_looks(self):
+        self.tick(3)
+        a = self.ops.spawn("test calc", (2, 1, -8), relative=True, look=True)  # 右 2 m、上 1 m、後ろ 8 m
+        self.tick(6)
+        self.assertTrue(self.ops.get(a)["ok"])
+        # プレイヤー (10, 2, -5)、前 (0.6, 0.8)、右 (0.8, -0.6)
+        x, y, z = self.api.spawned_at[0]
+        self.assertAlmostEqual(x, 10.0 + 2 * 0.8 - 8 * 0.6)
+        self.assertAlmostEqual(y, 3.0)
+        self.assertAlmostEqual(z, -5.0 - 2 * 0.6 - 8 * 0.8)
+
     def test_target_renew_without_target_fails(self):
         self.tick(3)
         a = self.ops.target_renew()

@@ -1,6 +1,7 @@
 -- Claude Bridge addon (Q3): spawn / despawn vehicles on relay commands
 -- Polls the relay at /addon and reports the result of the last command.
 -- Reply from relay: "ok" or "ok|<id>|spawn|<save_name>|<x>|<y>|<z>|<rel>" or "ok|<id>|despawn"
+--   (rel: 0 = world position, 1 = offset from the player, 2 = [right, up, forward] of where the player looks)
 --   or "ok|<id>|lift|<dy>" (teleport the vehicle dy metres up, to check physics keeps running)
 --   or "ok|<id>|move_player|<x>|<y>|<z>" (move the first real player there, so the ground and sea load)
 --   rel=1: x,y,z are offsets from the first player's position
@@ -204,10 +205,18 @@ function spawn(a)
 	local name=a[1]
 	local x,y,z=tonumber(a[2]),tonumber(a[3]),tonumber(a[4])
 	if name==nil or x==nil or y==nil or z==nil then return false end
-	if a[5]=="1" then
+	if a[5]=="1" or a[5]=="2" then
 		local p=firstPlayer()
 		if p==nil then return false end
 		local px,py,pz=matrix.position((server.getPlayerPos(p)))
+		if a[5]=="2" then
+			-- x = right, y = up, z = forward of where the player looks (horizontal)
+			local lx,_,lz,okL=server.getPlayerLookDirection(p)
+			local n=okL and math.sqrt(lx*lx+lz*lz) or 0
+			if n<1e-6 then return false end
+			lx,lz=lx/n,lz/n
+			x,z=x*lz+z*lx,-x*lx+z*lz
+		end
 		x,y,z=x+px,y+py,z+pz
 	end
 	despawn()

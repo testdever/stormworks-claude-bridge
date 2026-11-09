@@ -372,6 +372,17 @@ class ExperimentRunnerTest(unittest.TestCase):
         # 止めると同時に機体も片付くので、ここでは「切る指示を出したか」を見る（test calc は片付けない機体）
         self.assertEqual(w.com.summary()["commands"][-1]["values"].get("5"), 0.0)
 
+    def test_spawn_with_look_offset(self):
+        w = World()
+        script = {"name": "向きで置く", "steps": [
+            {"op": "spawn", "vehicle": "test calc", "look_offset": [0, 2, -8]},
+            {"op": "wait", "seconds": 1},
+        ]}
+        r = w.run(script)
+        self.assertEqual(r.result()["status"], "completed", r.result()["reason"])
+        with self.assertRaises(ValueError):
+            relay.ExperimentRunner._validate({"steps": [{"op": "spawn", "vehicle": "x", "look_offset": [0, 2]}]})
+
     def test_repeat_needs_times_and_steps(self):
         with self.assertRaises(ValueError):
             relay.ExperimentRunner._validate({"steps": [{"op": "repeat", "times": 0, "steps": [{"op": "wait", "seconds": 1}]}]})
