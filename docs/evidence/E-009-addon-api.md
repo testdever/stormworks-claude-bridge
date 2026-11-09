@@ -18,3 +18,7 @@ claims = [
 +++
 
 ゲームに入っている Lua の説明書きを書き出したもの（gcrtnst/sw-luadocs、v1.15.26。一部は手で直してあるとのこと）から、アドオンの試作に使う関数を拾った。アドオンのフォルダの形（playlist.xml）は、スクリプトだけのアドオンの実例（cuhHub/SWOptimizationAddon の src/playlist.xml）に合わせた。
+
+調べた先：ゲームに入っている Lua の説明書きを書き出したもの（gcrtnst/sw-luadocs の data/v1.15.26/markdown。addon_vehicles・addon_callbacks・addon_misc・addon_objects・addon_matrices・addon_examples）。Web 検索「server.spawnAddonComponent stormworks」「Stormworks addon lua API server.httpGet httpReply」。スクリプトだけのアドオンの実例（cuhHub/SWOptimizationAddon、Cuh4/SWAsteroidsAddon、carsakiller/Carsas-CommandsV2）の playlist.xml。
+
+解き方：アドオンから実験の場面を用意する定番は、保存済みの機体を server.spawnVehicle で名前を指定して置き、server.despawnVehicle / despawnVehicleGroup で片付ける方法。アドオンに機体を登録して server.spawnAddonVehicle / spawnAddonComponent で置く方法や、playlist.xml の環境 MOD（is_env_mod）として最初から置く方法もある。プレイヤーを実験場所へ移すには server.setPlayerPos、機体を動かすには server.setVehiclePos がある。
