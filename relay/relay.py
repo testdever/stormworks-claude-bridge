@@ -530,7 +530,8 @@ class ExperimentRunner:
       despawn {}                            機体を片付ける
       inject {kind:"despawn"|"nan"}         試験用にわざと異常を起こす（機体を消す／マイコンに壊れた値を送らせる）
     どの op にも label を付けられる。
-    見張り（watch）：values_timeout_s、addon_timeout_s、values_grace_s、stop_if:[{ch, lt|gt, reason}]
+    見張り（watch）：values_timeout_s（値が届き始めたあと、途切れたとみなす秒数。既定3）、
+      addon_timeout_s（既定3）、values_grace_s（置いてから最初の値を待つ秒数。既定15）、stop_if:[{ch, lt|gt, reason}]
     """
 
     OPS = {"move_player", "spawn", "wait", "set", "despawn", "inject"}
@@ -544,7 +545,8 @@ class ExperimentRunner:
         w = script.get("watch", {})
         self.values_timeout = float(w.get("values_timeout_s", 3.0))
         self.addon_timeout = float(w.get("addon_timeout_s", 3.0))
-        self.values_grace = float(w.get("values_grace_s", 3.0))
+        # 機体を置いてから最初の値が届くまで待つ時間。プレイヤーを移した直後はまわりの読み込みで遅れる
+        self.values_grace = float(w.get("values_grace_s", 15.0))
         self.stop_if = list(w.get("stop_if", []))
         self.done = False
         self.status = "waiting"
@@ -619,10 +621,11 @@ class ExperimentRunner:
         if self._expected_vid is not None and self._spawned_t is not None:
             if st["vid"] != self._expected_vid:
                 return "機体が消えた（アドオンが置いている機体が変わった）"
-            if now - self._spawned_t > self.values_grace:
-                since = self._spawned_t if last_value is None or last_value < self._spawned_t else last_value
-                if now - since > self.values_timeout:
-                    return f"マイコンからの値が途切れた（{now - since:.1f}秒）"
+            got_first = last_value is not None and last_value >= self._spawned_t
+            if got_first and now - last_value > self.values_timeout:
+                return f"マイコンからの値が途切れた（{now - last_value:.1f}秒）"
+            if not got_first and now - self._spawned_t > self.values_grace:
+                return f"機体を置いてから{self.values_grace:g}秒たっても、マイコンから値が届かない"
         return None
 
     # ---- 進行 ----
@@ -713,8 +716,13 @@ class ExperimentRunner:
             if self.commander.all_acked():
                 self._rows[-1]["ok"] = True
                 self._next(now)
-            elif elapsed >= 5.0:
-                self._fail(now, "指示が機体に届かない（5秒）")
+            else:
+                # 機体がまだ動き出していない（最初の値を待っている）間は、見張りの方に任せる
+                deadline = self._step_t + 5.0
+                if self._spawned_t is not None:
+                    deadline = max(deadline, self._spawned_t + self.values_grace + 1.0)
+                if now >= deadline:
+                    self._fail(now, "指示が機体に届かない（5秒）")
         elif op == "wait":
             if elapsed >= float(s["seconds"]):
                 self._rows[-1]["ok"] = True

@@ -15,7 +15,7 @@ import relay  # noqa: E402
 class World:
     """アドオンと機体のマイコンの代わり。0.05 秒ごとに動く。"""
 
-    def __init__(self, spawn_ok=True):
+    def __init__(self, spawn_ok=True, first_value_delay=0.0, never_values=False):
         self.ops, self.com = relay.AddonOps(), relay.Commander()
         self.rec = relay.Recorder(expected_values=32)
         self.spawn_ok = spawn_ok
@@ -23,6 +23,7 @@ class World:
         self.cmd = {i: 0.0 for i in range(1, 9)}
         self.paused_from = None
         self.player = (0.0, 5.0, 0.0)
+        self.first_value_delay, self.never_values, self.spawned_t = first_value_delay, never_values, None
         self.moved_to = []
 
     def tick(self, t: float) -> None:
@@ -36,6 +37,7 @@ class World:
                 if ok:
                     self.next_vid += 1
                     self.vid, self.seq, self.ack = self.next_vid, 0, 0
+                    self.spawned_t = t
                     self.cmd = {i: 0.0 for i in range(1, 9)}
             elif p["op"] == "despawn":
                 self.vid = -1
@@ -44,7 +46,7 @@ class World:
             self.ops.on_poll(ack=p["id"], ok=ok, vid=self.vid, sim=1 if self.vid >= 0 else -1, players=1, t=t)
         else:
             self.ops.on_poll(ack=0, ok=True, vid=self.vid, sim=1 if self.vid >= 0 else -1, players=1, t=t)
-        if self.vid >= 0:
+        if self.vid >= 0 and not self.never_values and t - self.spawned_t >= self.first_value_delay:
             body = self.com.reply_body()
             if body.startswith("ok|"):
                 _, cid, rest = body.split("|", 2)
@@ -153,6 +155,17 @@ class ExperimentRunnerTest(unittest.TestCase):
         res = w.run(BASIC).result()
         self.assertEqual(res["status"], "stopped")
         self.assertIn("機体を置けなかった", res["reason"])
+
+    def test_slow_first_values_after_move_are_waited_for(self):
+        w = World(first_value_delay=6.0)  # プレイヤーを移した直後で、機体が動き出すまで6秒かかる
+        res = w.run(BASIC).result()
+        self.assertEqual(res["status"], "completed", res.get("reason"))
+
+    def test_no_values_at_all_stops_after_grace(self):
+        w = World(never_values=True)
+        res = w.run(BASIC).result()
+        self.assertEqual(res["status"], "stopped")
+        self.assertIn("値が届かない", res["reason"])
 
     def test_bad_script_is_rejected(self):
         with self.assertRaises(ValueError):
