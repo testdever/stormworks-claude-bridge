@@ -1,0 +1,194 @@
+{
+  "script": {
+    "name": "Q6 物理センサーの出力の順番を確かめる",
+    "note": "回す前・回している間・止めたあとの値を比べ、回転に関わる出力（角速度・方位など）がどの番号かを確かめる",
+    "steps": [
+      {
+        "op": "move_player",
+        "pos": [
+          -260.9,
+          6,
+          -18959
+        ],
+        "label": "実験場所の近くへ移る（機体の 10m 手前）"
+      },
+      {
+        "op": "spawn",
+        "vehicle": "claude_test",
+        "label": "機体を置く（Q1 で機体が地面に乗っていた場所）",
+        "pos": [
+          -260.9,
+          7,
+          -18949
+        ]
+      },
+      {
+        "op": "wait",
+        "seconds": 3,
+        "label": "落ち着くのを待つ"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 1
+        },
+        "label": "モーターを回す"
+      },
+      {
+        "op": "wait",
+        "seconds": 10,
+        "label": "回している間"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 0
+        },
+        "label": "モーターを止める"
+      },
+      {
+        "op": "wait",
+        "seconds": 5,
+        "label": "止めたあと"
+      },
+      {
+        "op": "despawn",
+        "label": "片付ける"
+      }
+    ],
+    "watch": {
+      "stop_if": [
+        {
+          "ch": 8,
+          "lt": -12,
+          "reason": "機体が落ち続けている（置いた場所に足場がない）"
+        }
+      ]
+    }
+  },
+  "result": {
+    "name": "Q6 物理センサーの出力の順番を確かめる",
+    "status": "stopped",
+    "reason": "機体が落ち続けている（置いた場所に足場がない）",
+    "steps": [
+      {
+        "i": 1,
+        "op": "move_player",
+        "label": "実験場所の近くへ移る（機体の 10m 手前）",
+        "start_s": 0.0,
+        "end_s": 0.101,
+        "ok": true
+      },
+      {
+        "i": 2,
+        "op": "spawn",
+        "label": "機体を置く（Q1 で機体が地面に乗っていた場所）",
+        "start_s": 0.101,
+        "end_s": 0.202,
+        "ok": true
+      },
+      {
+        "i": 3,
+        "op": "wait",
+        "label": "落ち着くのを待つ",
+        "start_s": 0.202,
+        "end_s": 3.212,
+        "ok": true
+      },
+      {
+        "i": 4,
+        "op": "set",
+        "label": "モーターを回す",
+        "start_s": 3.212,
+        "end_s": 4.216,
+        "ok": true
+      },
+      {
+        "i": 5,
+        "op": "wait",
+        "label": "回している間",
+        "start_s": 4.216,
+        "end_s": 5.521,
+        "ok": null
+      }
+    ],
+    "injects": [],
+    "stopped_at_s": 5.521,
+    "stop_latency_s": null
+  },
+  "values": {
+    "received": 32,
+    "malformed": 0,
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 1.488,
+    "full_seconds": 1,
+    "min_per_sec": 21,
+    "max_per_sec": 21,
+    "avg_per_sec": 21.0,
+    "q1_pass": false
+  },
+  "load": {
+    "process": "stormworks64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": 9.4,
+    "cpu_percent_max": 9.4,
+    "memory_mb_max": 2335.6,
+    "samples": 2
+  },
+  "load_samples": [
+    {
+      "t": 30224.7076562,
+      "memory_mb": 2319.4,
+      "cpu_percent": null
+    },
+    {
+      "t": 30230.0936156,
+      "memory_mb": 2335.6,
+      "cpu_percent": 9.4
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 1,
+        "op": "move_player",
+        "args": [
+          "-260.9",
+          "6",
+          "-18959"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.051
+      },
+      {
+        "id": 2,
+        "op": "spawn",
+        "args": [
+          "claude_test",
+          "-260.9",
+          "7",
+          "-18949",
+          "0"
+        ],
+        "ok": true,
+        "vid": 3,
+        "latency_s": 0.06
+      },
+      {
+        "id": 3,
+        "op": "despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.064
+      }
+    ],
+    "polls": 118
+  }
+}
