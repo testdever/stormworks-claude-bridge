@@ -536,7 +536,18 @@ class AddonLuaTest(unittest.TestCase):
         a = self.ops.weather(0, 0.2, 0.5)
         self.tick(6)
         self.assertTrue(self.ops.get(a)["ok"])
-        self.assertEqual(self.api.weather, [(0.0, 0.2, 0.5)])
+        self.assertEqual(self.api.weather[0], (0.0, 0.2, 0.5))
+
+    def test_weather_is_set_again_and_again(self):
+        self.tick(3)
+        self.ops.weather(0, 0, 0)
+        self.tick(6)
+        n = len(self.api.weather)
+        self.api.settings["override_weather"] = False   # ゲームが上書きを戻しても
+        self.lua.execute("for i=1,130 do onTick(1) end")
+        self.assertGreaterEqual(len(self.api.weather), n + 2)
+        self.assertEqual(self.api.weather[-1], (0.0, 0.0, 0.0))
+        self.assertTrue(self.api.settings["override_weather"])
 
     def test_leftover_target_is_despawned_when_world_loads(self):
         self.api.vehicles[77] = "claude_target"

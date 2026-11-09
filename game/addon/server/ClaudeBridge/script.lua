@@ -7,7 +7,8 @@
 --   rel=1: x,y,z are offsets from the first player's position
 --   or "ok|<id>|target|<save_name>|<distance>|<y>|<same>" (place a target <distance> m ahead of where the player looks,
 --   at height y; same=1: from the same place and in the same direction as the previous target)
---   or "ok|<id>|target_despawn" or "ok|<id>|weather|<fog>|<rain>|<wind>" (0-1; turns the override_weather setting on)
+--   or "ok|<id>|target_despawn" or "ok|<id>|weather|<fog>|<rain>|<wind>" (0-1; turns the override_weather setting on,
+--   and sets it again every WEATHER_EVERY ticks: a change right after loading the world did not always take)
 --   or "ok|<id>|setting|<name>|<0 or 1>" (server.setGameSetting, e.g. vehicle_damage, infinite_batteries)
 --   or "ok|<id>|target_reset" (put the target back where and how it was placed; it is unloaded and reloaded,
 --   but keeps spinning and moving if it was hit)
@@ -46,6 +47,8 @@ sentN=0
 MAXDMG=500
 dmgLost=0
 hitN=0
+weather=nil
+WEATHER_EVERY=60
 hitShownN=0
 stopN=0
 replyN=0
@@ -104,6 +107,10 @@ function onTick(game_ticks)
 	end
 	if t%320==1 then
 		log("tick="..t.." seq="..seq.." ack="..ack.." replies="..replyN.." waiting="..tostring(waitT>=0).." hold="..hold.." players="..playerCount())
+	end
+	if weather and t%WEATHER_EVERY==0 then
+		server.setGameSetting("override_weather",true)
+		server.setWeather(weather[1],weather[2],weather[3])
 	end
 	if t%60==0 and hitN>hitShownN then
 		server.announce("[Claude]","target damaged x"..(hitN-hitShownN).." (total "..hitN..")")
@@ -195,6 +202,7 @@ function run(op,a)
 	elseif op=="weather" then
 		local f,r,w=tonumber(a[1]),tonumber(a[2]),tonumber(a[3])
 		if f==nil or r==nil or w==nil then return false end
+		weather={f,r,w}
 		server.setGameSetting("override_weather",true)
 		server.setWeather(f,r,w)
 		server.announce("[Claude]",string.format("weather fog=%.2f rain=%.2f wind=%.2f",f,r,w))
