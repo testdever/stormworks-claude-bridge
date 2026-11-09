@@ -18,6 +18,8 @@ ORPHAN=1800
 okT=0
 -- Saved with the world, so a vehicle left behind (game paused or crashed mid-experiment) is cleaned up on load
 g_savedata={vid=-1,gid=-1}
+-- Chat messages sent before a player is in the game are lost; hold them until someone is here
+pending={}
 ack=0
 res=1
 vid=-1
@@ -33,17 +35,23 @@ function onCreate(is_world_create)
 	local sv,sg=g_savedata.vid or -1,g_savedata.gid or -1
 	if sv>=0 or sg>=0 then
 		vid,gid=sv,sg
-		server.announce("[Claude]","despawning leftover vehicle id="..sv)
-		despawn()
+		log("despawning leftover vehicle id="..sv)
+		pending[#pending+1]="despawned leftover vehicle id="..sv
+		despawn(true)
 	end
 end
 
 function onTick(game_ticks)
 	t=t+1
+	if #pending>0 and playerCount()>0 then
+		for _,m in ipairs(pending) do server.announce("[Claude]",m) end
+		pending={}
+	end
 	if t%320==1 then
 		log("tick="..t.." seq="..seq.." ack="..ack.." replies="..replyN.." waiting="..tostring(waitT>=0).." hold="..hold.." players="..playerCount())
 	end
 	if vid>=0 and t-okT>ORPHAN then
+		log("no reply from relay, despawning id="..vid)
 		server.announce("[Claude]","no reply from relay, despawning id="..vid)
 		despawn()
 	end
@@ -126,15 +134,15 @@ function spawn(a)
 	return true
 end
 
-function despawn()
-	if vid<0 then return true end
+function despawn(quiet)
+	if vid<0 and gid<0 then return true end
 	local ok
 	if gid>=0 then
 		ok=server.despawnVehicleGroup(gid,true)
 	else
 		ok=server.despawnVehicle(vid,true)
 	end
-	server.announce("[Claude]","despawned id="..vid)
+	if not quiet then server.announce("[Claude]","despawned id="..vid) end
 	vid=-1
 	gid=-1
 	g_savedata.vid=-1

@@ -340,10 +340,16 @@ class AddonLuaTest(unittest.TestCase):
         self.api.vehicles[55] = "boat"
         g = self.lua.globals()
         g.g_savedata = self.lua.table_from({"vid": 55, "gid": 1055})
+        self.api.players = []       # 読み込んだ直後は、まだ誰もゲームに入っていない
         g.onCreate(False)
         self.assertEqual(self.api.vehicles, {})
         self.assertEqual((g.g_savedata.vid, g.g_savedata.gid), (-1, -1))
-        self.assertTrue(any("leftover" in a for a in self.api.announces))
+        self.assertTrue(any("leftover" in m for m in self.logs))
+        g.onTick(1)
+        self.assertEqual(self.api.announces, [], "誰もいない間はチャットに出さない（届かない）")
+        self.api.players = [{"id": 0, "name": "p", "steam_id": "76561198000000000"}]
+        g.onTick(1)
+        self.assertTrue(any("leftover" in a for a in self.api.announces), "入ってきたらチャットに出す")
 
     def test_new_world_has_nothing_to_despawn(self):
         g = self.lua.globals()
