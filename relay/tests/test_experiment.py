@@ -241,6 +241,29 @@ class ExperimentRunnerTest(unittest.TestCase):
         self.assertGreaterEqual(n, 8)   # 0.5 秒ごとに渡し直す
         self.assertLessEqual(n, 12)
 
+    def test_chat_stop_stops_the_run(self):
+        w = World()
+        orig = w.tick
+        stops = {"n": 0}
+
+        def tick(t):
+            if t >= 3.0:
+                stops["n"] = 1
+            w.ops.stop_requests = stops["n"]
+            orig(t)
+        w.tick = tick
+        r = w.run(BASIC)
+        res = r.result()
+        self.assertEqual(res["status"], "stopped")
+        self.assertIn("?claude stop", res["reason"])
+        self.assertLess(res["stopped_at_s"], 3.3)
+
+    def test_stop_typed_before_the_run_is_ignored(self):
+        w = World()
+        w.ops.stop_requests = 2   # 前の実験のときに打った分
+        r = w.run(BASIC)
+        self.assertEqual(r.result()["status"], "completed", r.result()["reason"])
+
     def test_bad_script_is_rejected(self):
         with self.assertRaises(ValueError):
             relay.ExperimentRunner(relay.AddonOps(), relay.Recorder(), relay.Commander(),

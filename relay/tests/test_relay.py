@@ -125,5 +125,22 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(rec.summary()["malformed"], 1)
 
 
+class ParseNumberTest(unittest.TestCase):
+    def test_windows_nan_and_inf(self):
+        import math
+        for text in ("nan", "-nan", "-nan(ind)", "nan(ind)", "1.#IND", "-1.#IND", "1.#QNAN"):
+            self.assertTrue(math.isnan(relay.parse_number(text)), text)
+        self.assertEqual(relay.parse_number("1.#INF"), math.inf)
+        self.assertEqual(relay.parse_number("-1.#INF"), -math.inf)
+        self.assertEqual(relay.parse_number("-24052.034"), -24052.034)
+        with self.assertRaises(ValueError):
+            relay.parse_number("abc")
+
+    def test_malformed_request_is_kept(self):
+        rec = relay.Recorder(expected_values=32)
+        rec.add_malformed("/v?s=1&v=x", "bad")
+        self.assertEqual(rec.summary()["malformed_examples"], [{"reason": "bad", "request": "/v?s=1&v=x"}])
+
+
 if __name__ == "__main__":
     unittest.main()

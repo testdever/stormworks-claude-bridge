@@ -6,6 +6,7 @@
 --   rel=1: x,y,z are offsets from the first player's position
 --   or "ok|<id>|target|<save_name>|<distance>|<y>" (place a target <distance> m ahead of where the player looks, at height y)
 --   or "ok|<id>|target_despawn" or "ok|<id>|weather|<fog>|<rain>|<wind>" (0-1)
+-- Chat "?claude stop": despawn the vehicle and the target now, and tell the relay to stop the experiment (stop=<count>)
 -- Damage to the placed vehicle or the target is reported as dmg=<vehicle>:<amount>:<x>:<y>:<z>:<body>;...
 -- No reply: wait longer before each resend (1s, 2s, 4s .. 10s) so the game does not pile up requests
 PORT=8765
@@ -36,6 +37,7 @@ MAXDMG=500
 dmgLost=0
 hitN=0
 hitShownN=0
+stopN=0
 replyN=0
 
 function log(msg)
@@ -57,6 +59,19 @@ function onCreate(is_world_create)
 		log("despawning leftover target id="..tv)
 		pending[#pending+1]="despawned leftover target id="..tv
 		despawnTarget(true)
+	end
+end
+
+function onCustomCommand(full_message,peer_id,is_admin,is_auth,command,one)
+	if command~="?claude" then return end
+	if one=="stop" then
+		stopN=stopN+1
+		log("stop requested by peer "..tostring(peer_id))
+		server.announce("[Claude]","stop requested: despawning id="..vid.." target="..tvid)
+		despawn(true)
+		despawnTarget(true)
+	else
+		server.announce("[Claude]","commands: ?claude stop")
 	end
 end
 
@@ -98,7 +113,7 @@ function onTick(game_ticks)
 	if t<holdT then return end
 	seq=seq+1
 	waitT=t
-	server.httpGet(PORT,"/addon?s="..seq.."&a="..ack.."&r="..res.."&vid="..vid.."&sim="..simState().."&np="..playerCount()..posQuery()..targetQuery()..dmgQuery())
+	server.httpGet(PORT,"/addon?s="..seq.."&a="..ack.."&r="..res.."&vid="..vid.."&sim="..simState().."&np="..playerCount()..posQuery()..targetQuery()..dmgQuery().."&stop="..stopN)
 end
 
 -- up to 20 damage events per request; they are dropped only after the relay answers this request

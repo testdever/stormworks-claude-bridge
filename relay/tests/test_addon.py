@@ -468,6 +468,23 @@ class AddonLuaTest(unittest.TestCase):
             g.onTick(1)
         self.assertEqual(self.api.vehicles, {})
 
+    def test_chat_stop_despawns_and_tells_the_relay(self):
+        self.tick(3)
+        self.ops.spawn("boat", (0, 0, 0), relative=False)
+        self.ops.target("claude_target", 2000, 1)
+        self.tick(12)
+        self.assertEqual(len(self.api.vehicles), 2)
+        g = self.lua.globals()
+        g.onCustomCommand("?claude stop", 0, True, True, "?claude", "stop")
+        self.assertEqual(self.api.vehicles, {})
+        self.assertTrue(any("stop requested" in a for a in self.api.announces))
+        self.tick(6)
+        self.assertEqual(self.ops.stop_requests, 1)
+        g.onCustomCommand("?other", 0, True, True, "?other")
+        g.onCustomCommand("?claude", 0, True, True, "?claude")
+        self.tick(6)
+        self.assertEqual(self.ops.stop_requests, 1)
+
     def test_q3_runner_end_to_end(self):
         r = relay.Q3Runner(self.ops, self.rec, vehicle="boat", offset=(0, 3, 15), relative=True,
                            cycles=3, hold=0.2, gap=0.1, timeout=2.0)

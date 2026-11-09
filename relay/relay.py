@@ -59,8 +59,21 @@ def parse_values(path: str) -> tuple[int, int, list[float], int | None]:
     except (KeyError, IndexError) as e:
         raise ValueError(f"項目 {e} がない") from e
     ack = int(q["a"][0]) if "a" in q else None
-    vals = [float(x) for x in raw.split(",")] if raw else []
+    vals = [parse_number(x) for x in raw.split(",")] if raw else []
     return seq, tick, vals, ack
+
+
+def parse_number(text: str) -> float:
+    """数を読む。Windows の Lua が書く数でない値（-nan(ind)、1.#INF など）も nan・inf として読む。"""
+    try:
+        return float(text)
+    except ValueError:
+        low = text.strip().lower()
+        if "nan" in low or "ind" in low:
+            return math.nan
+        if "inf" in low:
+            return -math.inf if low.startswith("-") else math.inf
+        raise
 
 
 def parse_bools(path: str) -> list[bool] | None:
@@ -106,8 +119,9 @@ class Recorder:
         self._malformed = 0
         self._resent = 0
         self._prev: tuple[int, int] | None = None
-        self._log = open(log_path, "a", encoding="utf-8") if log_path else None
+        self._log = open(log_path, "a", encoding="utf-8", buffering=1) if log_path else None
         self._listeners: list = []
+        self.malformed_examples: list[dict] = []  # はじいた要求の中身（はじめの20件）
 
     def add_listener(self, fn) -> None:
         """値が届くたびに fn(t, seq, tick, values) を呼ぶ。"""
@@ -135,9 +149,11 @@ class Recorder:
         for fn in self._listeners:
             fn(t, seq, tick, values)
 
-    def add_malformed(self) -> None:
+    def add_malformed(self, raw: str | None = None, reason: str = "") -> None:
         with self._lock:
             self._malformed += 1
+            if raw is not None and len(self.malformed_examples) < 20:
+                self.malformed_examples.append({"reason": reason, "request": raw[:2000]})
 
     def first_time(self) -> float | None:
         with self._lock:
@@ -151,7 +167,7 @@ class Recorder:
         with self._lock:
             times, seqs = list(self._times), list(self._seqs)
             bad, malformed, resent = self._bad_values, self._malformed, self._resent
-        s = {"received": len(times), "malformed": malformed, "bad_values": bad, "resent": resent,
+        s = {"received": len(times), "malformed": malformed, "malformed_examples": list(self.malformed_examples), "bad_values": bad, "resent": resent,
              "expected_values": self.expected_values, "duplicates": 0, "missing": 0,
              "duration_s": 0.0, "full_seconds": 0, "min_per_sec": 0, "max_per_sec": 0,
              "avg_per_sec": 0.0, "q1_pass": False}
@@ -248,10 +264,11 @@ class AddonOps:
         # 標的（や置いた機体）が傷ついた知らせ。{t, vehicle, amount, voxel:[x,y,z], body}
         self.damage: list[dict] = []
         self.damage_lost = 0
+        self.stop_requests = 0  # 本人がチャットで ?claude stop と打った回数（アドオンが数える）
         # 指示の番号は _base+1 から。同じワールドのまま中継プログラムを起動し直すと、アドオンは前の番号まで
         # 受け取り済みと覚えていて、それ以下の番号を無視する。最初の連絡で、その続きから振るようにする。
         self._base = 0
-        self._log = open(log_path, "a", encoding="utf-8") if log_path else None
+        self._log = open(log_path, "a", encoding="utf-8", buffering=1) if log_path else None
 
     def _issue(self, op: str, args: list[str], t: float | None) -> int:
         t = time.monotonic() if t is None else t
@@ -309,7 +326,7 @@ class AddonOps:
 
     def on_poll(self, ack: int, ok: bool, vid: int, sim: int, players: int, t: float | None = None,
                 pos: tuple[float, float, float] | None = None, target: dict | None = None,
-                damage: list[dict] | None = None, damage_lost: int = 0) -> None:
+                damage: list[dict] | None = None, damage_lost: int = 0, stop_requests: int = 0) -> None:
         t = time.monotonic() if t is None else t
         with self._lock:
             self.polls += 1
@@ -319,6 +336,7 @@ class AddonOps:
             for d in damage or []:
                 self.damage.append({"t": t, **d})
             self.damage_lost = max(self.damage_lost, damage_lost)
+            self.stop_requests = max(self.stop_requests, stop_requests)
             if self._log and (vid >= 0 or target or damage):
                 row = {"t": round(t, 4), "vid": vid, "sim": sim, "players": players}
                 if pos is not None:
@@ -646,6 +664,7 @@ class ExperimentRunner:
         self._follow: list[int] | None = None
         self._follow_last: tuple | None = None
         self._follow_t = -1e9
+        self._stops_seen = 0
         # マイコンごとの値の流れ。1台のマイコンの通し番号と tick は増え続けるので、続かない値は別のマイコンから来ている
         self._streams: list[dict] = []
         self._lock = threading.Lock()
@@ -726,6 +745,8 @@ class ExperimentRunner:
                     return
 
     def _watch(self, now: float) -> str | None:
+        if self.ops.stop_requests > self._stops_seen:
+            return "本人がチャットで止めた（?claude stop）"
         with self._lock:
             if self._alarm:
                 return self._alarm
@@ -753,6 +774,7 @@ class ExperimentRunner:
         if self.status == "waiting":
             if self.ops.polls == 0:
                 return
+            self._stops_seen = self.ops.stop_requests  # 始める前の分は数えない
             self._t0 = now
             self.status = "running"
             self.log.append(f"手順書「{self.script.get('name', '')}」を始めます（{len(self.steps)}手順）")
@@ -1028,17 +1050,19 @@ def make_server(host: str, port: int, recorder: Recorder, commander: Commander |
                         target["pos"] = [float(q["tx"][0]), float(q["ty"][0]), float(q["tz"][0])]
                 damage = parse_damage(q["dmg"][0]) if "dmg" in q else None
                 lost = int(q.get("dlost", ["0"])[0])
+                stops = int(q.get("stop", ["0"])[0])
             except (KeyError, ValueError) as e:
                 self._reply(200, f"error: {e}")
                 return
-            addon.on_poll(ack, ok, vid, sim, players, pos=pos, target=target, damage=damage, damage_lost=lost)
+            addon.on_poll(ack, ok, vid, sim, players, pos=pos, target=target, damage=damage, damage_lost=lost,
+                          stop_requests=stops)
             self._reply(200, addon.reply_body())
 
         def _values(self) -> None:
             try:
                 seq, tick, vals, ack = parse_values(self.path)
             except ValueError as e:
-                recorder.add_malformed()
+                recorder.add_malformed(self.path, str(e))
                 self._reply(200, f"error: {e}")
                 return
             now = time.monotonic()
