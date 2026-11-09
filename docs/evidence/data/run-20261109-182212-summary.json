@@ -1,0 +1,182 @@
+{
+  "script": {
+    "name": "Q7 値を壊す",
+    "steps": [
+      {
+        "op": "spawn",
+        "vehicle": "claude_test",
+        "offset": [
+          0,
+          3,
+          6
+        ],
+        "label": "機体を置く（プレイヤーから 6m 先、3m 上）"
+      },
+      {
+        "op": "wait",
+        "seconds": 3,
+        "label": "落ち着くのを待つ"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 1
+        },
+        "label": "モーターを回す"
+      },
+      {
+        "op": "wait",
+        "seconds": 4,
+        "label": "回している間"
+      },
+      {
+        "op": "inject",
+        "kind": "nan",
+        "label": "試験：マイコンに壊れた値を送らせる"
+      },
+      {
+        "op": "wait",
+        "seconds": 20,
+        "label": "止まるはずの時間"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 0
+        },
+        "label": "モーターを止める"
+      },
+      {
+        "op": "despawn",
+        "label": "片付ける"
+      }
+    ],
+    "watch": {
+      "stop_if": [
+        {
+          "ch": 8,
+          "lt": -12,
+          "reason": "機体が落ち続けている（置いた場所に足場がない）"
+        }
+      ]
+    }
+  },
+  "result": {
+    "name": "Q7 値を壊す",
+    "status": "stopped",
+    "reason": "値が壊れた（数でない値がマイコンから届いた）",
+    "steps": [
+      {
+        "i": 1,
+        "op": "spawn",
+        "label": "機体を置く（プレイヤーから 6m 先、3m 上）",
+        "start_s": 0.0,
+        "end_s": 0.101,
+        "ok": true
+      },
+      {
+        "i": 2,
+        "op": "wait",
+        "label": "落ち着くのを待つ",
+        "start_s": 0.101,
+        "end_s": 3.113,
+        "ok": true
+      },
+      {
+        "i": 3,
+        "op": "set",
+        "label": "モーターを回す",
+        "start_s": 3.113,
+        "end_s": 3.213,
+        "ok": true
+      },
+      {
+        "i": 4,
+        "op": "wait",
+        "label": "回している間",
+        "start_s": 3.213,
+        "end_s": 7.227,
+        "ok": true
+      },
+      {
+        "i": 5,
+        "op": "inject",
+        "label": "試験：マイコンに壊れた値を送らせる",
+        "start_s": 7.227,
+        "end_s": 7.327,
+        "ok": null
+      }
+    ],
+    "injects": [
+      {
+        "kind": "nan",
+        "t_s": 7.227
+      }
+    ],
+    "stopped_at_s": 7.327,
+    "stop_latency_s": 0.1
+  },
+  "values": {
+    "received": 138,
+    "malformed": 0,
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 6.576,
+    "full_seconds": 6,
+    "min_per_sec": 21,
+    "max_per_sec": 21,
+    "avg_per_sec": 21.0,
+    "q1_pass": false
+  },
+  "load": {
+    "process": "stormworks64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": 11.5,
+    "cpu_percent_max": 11.5,
+    "memory_mb_max": 2396.1,
+    "samples": 2
+  },
+  "load_samples": [
+    {
+      "t": 30516.2949665,
+      "memory_mb": 2395.9,
+      "cpu_percent": null
+    },
+    {
+      "t": 30521.7637886,
+      "memory_mb": 2396.1,
+      "cpu_percent": 11.5
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 8,
+        "op": "spawn",
+        "args": [
+          "claude_test",
+          "0",
+          "3",
+          "6",
+          "1"
+        ],
+        "ok": true,
+        "vid": 18,
+        "latency_s": 0.085
+      },
+      {
+        "id": 9,
+        "op": "despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.053
+      }
+    ],
+    "polls": 156
+  }
+}

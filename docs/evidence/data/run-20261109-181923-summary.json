@@ -1,0 +1,128 @@
+{
+  "script": {
+    "name": "Q6 物理センサーの出力の順番を確かめる（プレイヤーを移さない）",
+    "note": "回す前・回している間・止めたあとの値を比べ、回転に関わる出力（角速度・方位など）がどの番号かを確かめる。ゲームが落ちたため、プレイヤーを移す手順を抜いて原因を切り分ける版。機体はプレイヤーの今いる場所から 6m 先に出る。本人は、まわり10mが開けた平らな陸の上に立っておく",
+    "steps": [
+      {
+        "op": "spawn",
+        "vehicle": "claude_test",
+        "offset": [
+          0,
+          3,
+          6
+        ],
+        "label": "機体を置く（プレイヤーから 6m 先、3m 上）"
+      },
+      {
+        "op": "wait",
+        "seconds": 3,
+        "label": "落ち着くのを待つ"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 1
+        },
+        "label": "モーターを回す"
+      },
+      {
+        "op": "wait",
+        "seconds": 10,
+        "label": "回している間"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 0
+        },
+        "label": "モーターを止める"
+      },
+      {
+        "op": "wait",
+        "seconds": 5,
+        "label": "止めたあと"
+      },
+      {
+        "op": "despawn",
+        "label": "片付ける"
+      }
+    ],
+    "watch": {
+      "stop_if": [
+        {
+          "ch": 8,
+          "lt": -12,
+          "reason": "機体が落ち続けている（置いた場所に足場がない）"
+        }
+      ]
+    }
+  },
+  "result": {
+    "name": "Q6 物理センサーの出力の順番を確かめる（プレイヤーを移さない）",
+    "status": "stopped",
+    "reason": "機体を置けなかった",
+    "steps": [
+      {
+        "i": 1,
+        "op": "spawn",
+        "label": "機体を置く（プレイヤーから 6m 先、3m 上）",
+        "start_s": 0.0,
+        "end_s": 0.102,
+        "ok": false
+      }
+    ],
+    "injects": [],
+    "stopped_at_s": 0.102,
+    "stop_latency_s": null
+  },
+  "values": {
+    "received": 0,
+    "malformed": 0,
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 0.0,
+    "full_seconds": 0,
+    "min_per_sec": 0,
+    "max_per_sec": 0,
+    "avg_per_sec": 0.0,
+    "q1_pass": false
+  },
+  "load": {
+    "process": "stormworks64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": null,
+    "cpu_percent_max": null,
+    "memory_mb_max": 2397.4,
+    "samples": 1
+  },
+  "load_samples": [
+    {
+      "t": 30347.4333154,
+      "memory_mb": 2397.4,
+      "cpu_percent": null
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 1,
+        "op": "spawn",
+        "args": [
+          "claude_test",
+          "0",
+          "3",
+          "6",
+          "1"
+        ],
+        "ok": null,
+        "vid": null,
+        "latency_s": 0.038
+      }
+    ],
+    "polls": 7
+  }
+}

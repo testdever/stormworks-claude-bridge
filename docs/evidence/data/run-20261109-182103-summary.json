@@ -1,0 +1,199 @@
+{
+  "script": {
+    "name": "Q6 物理センサーの出力の順番を確かめる（プレイヤーを移さない）",
+    "note": "回す前・回している間・止めたあとの値を比べ、回転に関わる出力（角速度・方位など）がどの番号かを確かめる。ゲームが落ちたため、プレイヤーを移す手順を抜いて原因を切り分ける版。機体はプレイヤーの今いる場所から 6m 先に出る。本人は、まわり10mが開けた平らな陸の上に立っておく",
+    "steps": [
+      {
+        "op": "spawn",
+        "vehicle": "claude_test",
+        "offset": [
+          0,
+          3,
+          6
+        ],
+        "label": "機体を置く（プレイヤーから 6m 先、3m 上）"
+      },
+      {
+        "op": "wait",
+        "seconds": 3,
+        "label": "落ち着くのを待つ"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 1
+        },
+        "label": "モーターを回す"
+      },
+      {
+        "op": "wait",
+        "seconds": 10,
+        "label": "回している間"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 0
+        },
+        "label": "モーターを止める"
+      },
+      {
+        "op": "wait",
+        "seconds": 5,
+        "label": "止めたあと"
+      },
+      {
+        "op": "despawn",
+        "label": "片付ける"
+      }
+    ],
+    "watch": {
+      "stop_if": [
+        {
+          "ch": 8,
+          "lt": -12,
+          "reason": "機体が落ち続けている（置いた場所に足場がない）"
+        }
+      ]
+    }
+  },
+  "result": {
+    "name": "Q6 物理センサーの出力の順番を確かめる（プレイヤーを移さない）",
+    "status": "completed",
+    "reason": "",
+    "steps": [
+      {
+        "i": 1,
+        "op": "spawn",
+        "label": "機体を置く（プレイヤーから 6m 先、3m 上）",
+        "start_s": 0.0,
+        "end_s": 0.101,
+        "ok": true
+      },
+      {
+        "i": 2,
+        "op": "wait",
+        "label": "落ち着くのを待つ",
+        "start_s": 0.101,
+        "end_s": 3.114,
+        "ok": true
+      },
+      {
+        "i": 3,
+        "op": "set",
+        "label": "モーターを回す",
+        "start_s": 3.114,
+        "end_s": 3.215,
+        "ok": true
+      },
+      {
+        "i": 4,
+        "op": "wait",
+        "label": "回している間",
+        "start_s": 3.215,
+        "end_s": 13.254,
+        "ok": true
+      },
+      {
+        "i": 5,
+        "op": "set",
+        "label": "モーターを止める",
+        "start_s": 13.254,
+        "end_s": 13.355,
+        "ok": true
+      },
+      {
+        "i": 6,
+        "op": "wait",
+        "label": "止めたあと",
+        "start_s": 13.355,
+        "end_s": 18.376,
+        "ok": true
+      },
+      {
+        "i": 7,
+        "op": "despawn",
+        "label": "片付ける",
+        "start_s": 18.376,
+        "end_s": 18.476,
+        "ok": true
+      }
+    ],
+    "injects": [],
+    "stopped_at_s": null,
+    "stop_latency_s": null
+  },
+  "values": {
+    "received": 378,
+    "malformed": 0,
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 18.097,
+    "full_seconds": 18,
+    "min_per_sec": 20,
+    "max_per_sec": 21,
+    "avg_per_sec": 20.83,
+    "q1_pass": false
+  },
+  "load": {
+    "process": "stormworks64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": 12.3,
+    "cpu_percent_max": 12.5,
+    "memory_mb_max": 2398.6,
+    "samples": 4
+  },
+  "load_samples": [
+    {
+      "t": 30447.6589006,
+      "memory_mb": 2397.4,
+      "cpu_percent": null
+    },
+    {
+      "t": 30453.1351542,
+      "memory_mb": 2398.6,
+      "cpu_percent": 12.1
+    },
+    {
+      "t": 30458.5876503,
+      "memory_mb": 2398.5,
+      "cpu_percent": 12.5
+    },
+    {
+      "t": 30464.0046376,
+      "memory_mb": 2395.9,
+      "cpu_percent": 12.2
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 4,
+        "op": "spawn",
+        "args": [
+          "claude_test",
+          "0",
+          "3",
+          "6",
+          "1"
+        ],
+        "ok": true,
+        "vid": 16,
+        "latency_s": 0.09
+      },
+      {
+        "id": 5,
+        "op": "despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.051
+      }
+    ],
+    "polls": 386
+  }
+}

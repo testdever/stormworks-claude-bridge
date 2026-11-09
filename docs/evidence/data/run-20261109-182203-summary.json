@@ -1,0 +1,182 @@
+{
+  "script": {
+    "name": "Q7 機体を消す",
+    "steps": [
+      {
+        "op": "spawn",
+        "vehicle": "claude_test",
+        "offset": [
+          0,
+          3,
+          6
+        ],
+        "label": "機体を置く（プレイヤーから 6m 先、3m 上）"
+      },
+      {
+        "op": "wait",
+        "seconds": 3,
+        "label": "落ち着くのを待つ"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 1
+        },
+        "label": "モーターを回す"
+      },
+      {
+        "op": "wait",
+        "seconds": 4,
+        "label": "回している間"
+      },
+      {
+        "op": "inject",
+        "kind": "despawn",
+        "label": "試験：機体を消す"
+      },
+      {
+        "op": "wait",
+        "seconds": 20,
+        "label": "止まるはずの時間"
+      },
+      {
+        "op": "set",
+        "outputs": {
+          "1": 0
+        },
+        "label": "モーターを止める"
+      },
+      {
+        "op": "despawn",
+        "label": "片付ける"
+      }
+    ],
+    "watch": {
+      "stop_if": [
+        {
+          "ch": 8,
+          "lt": -12,
+          "reason": "機体が落ち続けている（置いた場所に足場がない）"
+        }
+      ]
+    }
+  },
+  "result": {
+    "name": "Q7 機体を消す",
+    "status": "stopped",
+    "reason": "機体が消えた（アドオンが置いている機体が変わった）",
+    "steps": [
+      {
+        "i": 1,
+        "op": "spawn",
+        "label": "機体を置く（プレイヤーから 6m 先、3m 上）",
+        "start_s": 0.0,
+        "end_s": 0.1,
+        "ok": true
+      },
+      {
+        "i": 2,
+        "op": "wait",
+        "label": "落ち着くのを待つ",
+        "start_s": 0.1,
+        "end_s": 3.111,
+        "ok": true
+      },
+      {
+        "i": 3,
+        "op": "set",
+        "label": "モーターを回す",
+        "start_s": 3.111,
+        "end_s": 3.211,
+        "ok": true
+      },
+      {
+        "i": 4,
+        "op": "wait",
+        "label": "回している間",
+        "start_s": 3.211,
+        "end_s": 7.226,
+        "ok": true
+      },
+      {
+        "i": 5,
+        "op": "inject",
+        "label": "試験：機体を消す",
+        "start_s": 7.226,
+        "end_s": 7.326,
+        "ok": null
+      }
+    ],
+    "injects": [
+      {
+        "kind": "despawn",
+        "t_s": 7.226
+      }
+    ],
+    "stopped_at_s": 7.326,
+    "stop_latency_s": 0.1
+  },
+  "values": {
+    "received": 143,
+    "malformed": 0,
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 6.82,
+    "full_seconds": 6,
+    "min_per_sec": 20,
+    "max_per_sec": 21,
+    "avg_per_sec": 20.83,
+    "q1_pass": false
+  },
+  "load": {
+    "process": "stormworks64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": 12.3,
+    "cpu_percent_max": 12.3,
+    "memory_mb_max": 2395.7,
+    "samples": 2
+  },
+  "load_samples": [
+    {
+      "t": 30507.4254397,
+      "memory_mb": 2395.7,
+      "cpu_percent": null
+    },
+    {
+      "t": 30512.8863524,
+      "memory_mb": 2395.7,
+      "cpu_percent": 12.3
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 6,
+        "op": "spawn",
+        "args": [
+          "claude_test",
+          "0",
+          "3",
+          "6",
+          "1"
+        ],
+        "ok": true,
+        "vid": 17,
+        "latency_s": 0.07
+      },
+      {
+        "id": 7,
+        "op": "despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.06
+      }
+    ],
+    "polls": 156
+  }
+}
