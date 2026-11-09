@@ -1,6 +1,6 @@
 {
   "name": "FCS V-07（手放し）：1 km・2 km で 10 発ずつ、撃った瞬間の照準のずれと命中",
-  "note": "test calc（陸に固定した Battle Cannon と FCS）用。つなぎのマイコンは game/fcs_bridge.lua。標的の座標は ch1 = X、ch2 = Z、ch3 = Y（test calc の並び）、射撃許可は指示 5（つなぎのマイコンの on/off 出力 1 → FCS の allow fire）。1発ごとに標的を置いたときの向きに戻してから撃つ。本人は始めに撃ちたい海の方向を向くだけ。標的は海面の高さ（y = 0）に置く（2 m から落とすと 2〜3 秒上下に揺れ、FCS がそれを追って外れた）。撃つのは、標的の位置が 1 秒の間 0.3 m 以内に収まってから",
+  "note": "test calc（陸に固定した Battle Cannon と FCS）用。つなぎのマイコンは game/fcs_bridge.lua。標的の座標は ch1 = X、ch2 = Z、ch3 = Y（test calc の並び）、射撃許可は指示 5（つなぎのマイコンの on/off 出力 1 → FCS の allow fire）。1発ごとに、置いた場所に新しい標的を出し直してから撃つ（当たった標的は戻しても回り続けるため）。本人は始めに撃ちたい海の方向を向くだけ。標的は海面の高さ（y = 0）に置く（2 m から落とすと 2〜3 秒上下に揺れ、FCS がそれを追って外れた）。撃つのは、標的の位置が 1 秒の間 0.3 m 以内に収まってから",
   "steps": [
     {
       "op": "weather",
@@ -41,8 +41,8 @@
       "times": 10,
       "steps": [
         {
-          "op": "target_reset",
-          "label": "標的を置いたときの向きに戻す"
+          "op": "target_renew",
+          "label": "新しい標的に置き直す（回転・速さ・傷なし）"
         },
         {
           "op": "wait",
@@ -98,8 +98,8 @@
       "times": 10,
       "steps": [
         {
-          "op": "target_reset",
-          "label": "標的を置いたときの向きに戻す"
+          "op": "target_renew",
+          "label": "新しい標的に置き直す（回転・速さ・傷なし）"
         },
         {
           "op": "wait",

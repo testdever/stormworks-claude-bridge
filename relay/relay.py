@@ -21,6 +21,7 @@ Stormworks の機体のマイコンが async.httpGet で送ってくる値を受
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import math
 import sys
@@ -329,6 +330,7 @@ class AddonOps:
         self.damage_lost = 0
         self.stop_requests = 0  # 本人がチャットで ?claude stop と打った回数（アドオンが数える）
         self.target_pose: dict[int, dict] = {}  # 標的ごとの、向き（方位）と立ち具合の最小・最大
+        self.pose_log: list[tuple[float, int, float, float]] = []  # (時刻, 標的, 方位, 立ち具合)。着弾のときの向きを調べる
         # 指示の番号は _base+1 から。同じワールドのまま中継プログラムを起動し直すと、アドオンは前の番号まで
         # 受け取り済みと覚えていて、それ以下の番号を無視する。最初の連絡で、その続きから振るようにする。
         self._base = 0
@@ -366,6 +368,10 @@ class AddonOps:
     def target_reset(self, t: float | None = None) -> int:
         """標的を、置いたときの位置と向きに戻す（機体は読み込み直される）。"""
         return self._issue("target_reset", [], t)
+
+    def target_renew(self, t: float | None = None) -> int:
+        """標的を、置いた場所に新しく置き直す（回転も速さも傷もない。当たった標的は戻しても回り続けるため）。"""
+        return self._issue("target_renew", [], t)
 
     def target_despawn(self, t: float | None = None) -> int:
         return self._issue("target_despawn", [], t)
@@ -413,6 +419,8 @@ class AddonOps:
                 p["yaw_min"] = min(p["yaw_min"], target["yaw"])
                 p["yaw_max"] = max(p["yaw_max"], target["yaw"])
                 p["up_min"] = min(p["up_min"], target.get("up", 1.0))
+                if len(self.pose_log) < 100000:
+                    self.pose_log.append((t, target["vid"], target["yaw"], target.get("up", 1.0)))
             if self._log and (vid >= 0 or target or damage):
                 row = {"t": round(t, 4), "vid": vid, "sim": sim, "players": players}
                 if pos is not None:
@@ -465,16 +473,24 @@ class AddonOps:
                                                     "voxels": len(v["voxels"])} for k, v in per.items()}}
 
 
-def fcs_summary(shots: list[dict], damage: list[dict], target_vids: set[int] | None = None) -> dict:
-    """1発ごとに当たったか（飛ぶ時間のあたりに標的が傷ついたか）を決め、距離ごとにまとめる。"""
+def fcs_summary(shots: list[dict], damage: list[dict], target_vids: set[int] | None = None,
+                poses: list[tuple] | None = None) -> dict:
+    """1発ごとに当たったか（飛ぶ時間のあたりに標的が傷ついたか）を決め、距離ごとにまとめる。
+    poses（時刻, 標的, 方位, 立ち具合）があれば、着弾のときの標的の向きも付ける。"""
     hits_t = sorted(d["t"] for d in damage if target_vids is None or d["vehicle"] in target_vids)
+    poses = poses or []
+    pose_t = [p[0] for p in poses]
     rows = []
     for s in shots:
         lo, hi = s["t"] + s["tof"] - 0.7, s["t"] + s["tof"] + 1.5
         hit = any(lo <= h <= hi for h in hits_t)
         miss_m = s["range"] * math.tan(math.radians(s["diff"]))
-        rows.append({"n": s["n"], "t": round(s["t"], 3), "range": round(s["range"], 1), "diff_deg": s["diff"],
-                     "aim_miss_m": round(miss_m, 3), "pred_m": s["pred"], "tof": s["tof"], "hit": hit})
+        row = {"n": s["n"], "t": round(s["t"], 3), "range": round(s["range"], 1), "diff_deg": s["diff"],
+               "aim_miss_m": round(miss_m, 3), "pred_m": s["pred"], "tof": s["tof"], "hit": hit}
+        i = bisect.bisect_right(pose_t, s["t"] + s["tof"]) - 1
+        if i >= 0:
+            row["impact_yaw"], row["impact_up"] = poses[i][2], poses[i][3]
+        rows.append(row)
     groups: dict[int, list[dict]] = {}
     for r in rows:
         groups.setdefault(int(round(r["range"] / 100.0)) * 100, []).append(r)
@@ -483,8 +499,12 @@ def fcs_summary(shots: list[dict], damage: list[dict], target_vids: set[int] | N
         m = [r["aim_miss_m"] for r in g]
         mean = sum(m) / len(m)
         sd = (sum((x - mean) ** 2 for x in m) / (len(m) - 1)) ** 0.5 if len(m) > 1 else 0.0
-        out.append({"range_m": rng, "shots": len(g), "hits": sum(r["hit"] for r in g),
-                    "aim_bias_m": round(mean, 3), "aim_sd_m": round(sd, 3)})
+        row = {"range_m": rng, "shots": len(g), "hits": sum(r["hit"] for r in g),
+               "aim_bias_m": round(mean, 3), "aim_sd_m": round(sd, 3)}
+        yaws = [r["impact_yaw"] for r in g if "impact_yaw" in r]
+        if yaws:
+            row["impact_yaw_min"], row["impact_yaw_max"] = min(yaws), max(yaws)
+        out.append(row)
     return {"by_range": out, "shots": rows}
 
 
@@ -492,7 +512,9 @@ def report_fcs(f: dict) -> list[str]:
     lines = []
     for g in f["by_range"]:
         lines.append(f"約 {g['range_m']} m：{g['shots']}発中 {g['hits']}発当たり。撃った瞬間の照準のずれ（標的の位置で）"
-                     f" 偏り {g['aim_bias_m']:+.2f} m、ばらつき {g['aim_sd_m']:.2f} m")
+                     f" 偏り {g['aim_bias_m']:+.2f} m、ばらつき {g['aim_sd_m']:.2f} m"
+                     + (f"。着弾のときの標的の方位 {g['impact_yaw_min']:.1f}〜{g['impact_yaw_max']:.1f}°"
+                        if "impact_yaw_min" in g else ""))
     return lines
 
 
@@ -733,14 +755,14 @@ class ExperimentRunner:
     """
 
     OPS = {"move_player", "spawn", "wait", "set", "despawn", "inject", "target", "target_despawn", "weather",
-           "aim_target", "fire", "target_reset"}
+           "aim_target", "fire", "target_reset", "target_renew"}
     FOLLOW_INTERVAL = 0.5   # 標的の座標を渡し直す間隔の下限（秒）
     FOLLOW_MOVE = 0.02      # これより動いたら渡し直す（m）
     STEP_TIMEOUT = 10.0
     FAIL_TEXT = {"move_player": "プレイヤーを移せなかった", "spawn": "機体を置けなかった",
                  "despawn": "機体を片付けられなかった", "target": "標的を置けなかった",
                  "target_despawn": "標的を片付けられなかった", "weather": "天気を変えられなかった",
-                 "target_reset": "標的を戻せなかった"}
+                 "target_reset": "標的を戻せなかった", "target_renew": "標的を置き直せなかった"}
     CLEANUP_TIMEOUT = 5.0
 
     def __init__(self, ops: AddonOps, recorder: Recorder, commander: Commander, script: dict):
@@ -967,6 +989,8 @@ class ExperimentRunner:
             self._op = self.ops.target_despawn(t=now)
         elif op == "target_reset":
             self._op = self.ops.target_reset(t=now)
+        elif op == "target_renew":
+            self._op = self.ops.target_renew(t=now)
         elif op == "fire":
             self._fire_ch = int(s.get("channel", 5))
             self._fire_base = self.recorder.shot_count()
@@ -1586,11 +1610,16 @@ def main(argv: list[str] | None = None) -> int:
         shots = rec.shots()
         if shots:
             tv = {int(k) for k in out["addon_ops"]["target_pose"]} or None
-            out["fcs"] = fcs_summary(shots, ops.damage, tv)
+            out["fcs"] = fcs_summary(shots, ops.damage, tv, ops.pose_log)
             text += "\n" + "\n".join(report_fcs(out["fcs"]))
-        for vid, p in out["addon_ops"]["target_pose"].items():
-            text += (f"\n標的 {vid} の向き：方位 {p['yaw_min']:.1f}〜{p['yaw_max']:.1f}°、"
-                     f"立ち具合の最小 {p['up_min']:.3f}（1 = まっすぐ）")
+        poses = out["addon_ops"]["target_pose"]
+        if len(poses) > 3:
+            text += (f"\n標的 {len(poses)} 台（1発ごとに置き直し）の向き：方位 {min(p['yaw_min'] for p in poses.values()):.1f}〜"
+                     f"{max(p['yaw_max'] for p in poses.values()):.1f}°（当たったあとの回転を含む）")
+        else:
+            for vid, p in out["addon_ops"]["target_pose"].items():
+                text += (f"\n標的 {vid} の向き：方位 {p['yaw_min']:.1f}〜{p['yaw_max']:.1f}°、"
+                         f"立ち具合の最小 {p['up_min']:.3f}（1 = まっすぐ）")
     else:
         load = sampler.summary()
         out = {"values": s, "q4": runner.summary(), "load": load, "load_samples": sampler.samples,

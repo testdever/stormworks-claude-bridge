@@ -181,6 +181,15 @@ class FcsRelayTest(unittest.TestCase):
         self.assertAlmostEqual(f["shots"][1]["aim_miss_m"], 1001.0 * 0.000174533, places=3)
         self.assertIn("1発中 1発当たり", relay.report_fcs(f)[1])
 
+    def test_fcs_summary_gives_the_target_heading_at_impact(self):
+        shots = [{"n": 1, "t": 10.0, "range": 1000.0, "diff": 0.0, "pred": 0.1, "tof": 1.5},
+                 {"n": 2, "t": 20.0, "range": 1000.0, "diff": 0.0, "pred": 0.1, "tof": 1.5}]
+        poses = [(10.0, 7, 0.0, 1.0), (11.4, 7, 2.0, 0.99), (11.6, 7, 9.0, 0.98), (21.0, 8, -3.0, 1.0)]
+        f = relay.fcs_summary(shots, [], {7, 8}, poses)
+        self.assertEqual([r["impact_yaw"] for r in f["shots"]], [2.0, -3.0])
+        self.assertEqual((f["by_range"][0]["impact_yaw_min"], f["by_range"][0]["impact_yaw_max"]), (-3.0, 2.0))
+        self.assertIn("着弾のときの標的の方位", relay.report_fcs(f)[0])
+
     def test_commands_not_yet_received_are_sent_together(self):
         c = relay.Commander()
         c.issue({5: 0.0}, t=1.0)         # 射撃許可を切る

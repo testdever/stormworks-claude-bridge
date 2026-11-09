@@ -472,6 +472,27 @@ class AddonLuaTest(unittest.TestCase):
         self.assertEqual(self.api.spawned_at[-1], (10.0 + 1200.0, 1.0, -5.0 + 1600.0))
         self.assertEqual(self.api.spawned_at[0], (10.0 + 600.0, 1.0, -5.0 + 800.0))
 
+    def test_target_renew_puts_a_fresh_target_where_it_was_placed(self):
+        self.tick(3)
+        self.ops.target("claude_target", 2000, 1)
+        self.tick(6)
+        a = self.ops.target_renew()
+        self.tick(6)
+        self.assertTrue(self.ops.get(a)["ok"])
+        self.assertEqual(self.api.spawned_at, [(1210.0, 1.0, 1595.0)] * 2)
+        self.assertEqual(list(self.api.vehicles), [102], "前の標的は片付けた")
+        self.assertEqual(self.ops.status()["target"]["vid"], 102)
+        b = self.ops.target_renew()
+        self.tick(6)
+        self.assertTrue(self.ops.get(b)["ok"])
+        self.assertEqual(list(self.api.vehicles), [103])
+
+    def test_target_renew_without_target_fails(self):
+        self.tick(3)
+        a = self.ops.target_renew()
+        self.tick(6)
+        self.assertFalse(self.ops.get(a)["ok"])
+
     def test_target_reset_without_target_fails(self):
         self.tick(3)
         a = self.ops.target_reset()

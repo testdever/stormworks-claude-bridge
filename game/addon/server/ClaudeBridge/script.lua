@@ -7,7 +7,9 @@
 --   or "ok|<id>|target|<save_name>|<distance>|<y>|<same>" (place a target <distance> m ahead of where the player looks,
 --   at height y; same=1: from the same place and in the same direction as the previous target)
 --   or "ok|<id>|target_despawn" or "ok|<id>|weather|<fog>|<rain>|<wind>" (0-1)
---   or "ok|<id>|target_reset" (put the target back where and how it was placed; it is unloaded and reloaded)
+--   or "ok|<id>|target_reset" (put the target back where and how it was placed; it is unloaded and reloaded,
+--   but keeps spinning and moving if it was hit)
+--   or "ok|<id>|target_renew" (replace the target with a fresh one where it was placed: no spin, no speed, no damage)
 -- The target's heading (tyaw, deg) and the up axis height (tup, 1 = upright) are reported with each poll
 -- Chat "?claude stop": despawn the vehicle and the target now, and tell the relay to stop the experiment (stop=<count>)
 -- Damage to the placed vehicle or the target is reported as dmg=<vehicle>:<amount>:<x>:<y>:<z>:<body>;...
@@ -35,6 +37,7 @@ tvid=-1
 tgid=-1
 tmat=nil
 tbase=nil
+tname=nil
 -- damage events not yet received by the relay; sentN of them went out with the request now waiting
 dmg={}
 sentN=0
@@ -185,6 +188,8 @@ function run(op,a)
 		return despawnTarget()
 	elseif op=="target_reset" then
 		return resetTarget()
+	elseif op=="target_renew" then
+		return renewTarget()
 	elseif op=="weather" then
 		local f,r,w=tonumber(a[1]),tonumber(a[2]),tonumber(a[3])
 		if f==nil or r==nil or w==nil then return false end
@@ -261,12 +266,33 @@ function spawnTarget(name,dist,y,same)
 	tvid=v
 	tgid=g or -1
 	tmat=mt
+	tname=name
 	okT=t
 	hitN=0
 	hitShownN=0
 	g_savedata.tvid=tvid
 	g_savedata.tgid=tgid
 	server.announce("[Claude]",string.format("target %s id=%d at X=%.1f Y=%.1f Z=%.1f (%.0f m)",name,v,x,y,z,dist))
+	return true
+end
+
+function renewTarget()
+	if tvid<0 or tmat==nil or tname==nil then return false end
+	local m,name=tmat,tname
+	despawnTarget(true)
+	local v,ok,_,g=server.spawnVehicle(m,name)
+	if not ok then
+		server.announce("[Claude]","target spawn failed: "..name)
+		return false
+	end
+	tvid=v
+	tgid=g or -1
+	tmat=m
+	tname=name
+	hitN=0
+	hitShownN=0
+	g_savedata.tvid=tvid
+	g_savedata.tgid=tgid
 	return true
 end
 
