@@ -230,8 +230,11 @@ class AddonOps:
     def __init__(self, log_path: Path | None = None):
         self._lock = threading.Lock()
         self._ops: list[dict] = []  # {id, op, args, issued_t, done_t, ok, vid}
-        self._status = {"vid": -1, "sim": -1, "players": 0, "pos": None, "t": None}
+        self._status = {"vid": -1, "sim": -1, "players": 0, "pos": None, "t": None, "target": None}
         self.polls = 0
+        # 標的（や置いた機体）が傷ついた知らせ。{t, vehicle, amount, voxel:[x,y,z], body}
+        self.damage: list[dict] = []
+        self.damage_lost = 0
         # 指示の番号は _base+1 から。同じワールドのまま中継プログラムを起動し直すと、アドオンは前の番号まで
         # 受け取り済みと覚えていて、それ以下の番号を無視する。最初の連絡で、その続きから振るようにする。
         self._base = 0
@@ -258,6 +261,22 @@ class AddonOps:
         """プレイヤー（ゲーム本体の自分）を pos へ移す。まわりの地面と海が読み込まれる。"""
         return self._issue("move_player", [format_value(float(v)) for v in pos], t)
 
+    def target(self, name: str, distance: float, y: float, t: float | None = None) -> int:
+        """プレイヤーが向いている方向（水平）の distance m 先、高さ y に標的を置く。"""
+        if not name or any(c in name for c in "|\r\n"):
+            raise ValueError("標的の名前が空か、使えない文字（| や改行）を含む")
+        return self._issue("target", [name, format_value(float(distance)), format_value(float(y))], t)
+
+    def target_despawn(self, t: float | None = None) -> int:
+        return self._issue("target_despawn", [], t)
+
+    def weather(self, fog: float, rain: float, wind: float, t: float | None = None) -> int:
+        """天気を変える（霧・雨・風、それぞれ 0〜1）。"""
+        vals = [float(fog), float(rain), float(wind)]
+        if any(not 0.0 <= v <= 1.0 for v in vals):
+            raise ValueError("霧・雨・風は 0〜1")
+        return self._issue("weather", [format_value(v) for v in vals], t)
+
     def lift(self, dy: float = 15.0, t: float | None = None) -> int:
         """置いている機体を dy メートル持ち上げる（物理が進んでいれば、そこから落ちる）。"""
         return self._issue("lift", [format_value(float(dy))], t)
@@ -276,17 +295,25 @@ class AddonOps:
         return "|".join(["ok", str(o["id"]), o["op"], *o["args"]])
 
     def on_poll(self, ack: int, ok: bool, vid: int, sim: int, players: int, t: float | None = None,
-                pos: tuple[float, float, float] | None = None) -> None:
+                pos: tuple[float, float, float] | None = None, target: dict | None = None,
+                damage: list[dict] | None = None, damage_lost: int = 0) -> None:
         t = time.monotonic() if t is None else t
         with self._lock:
             self.polls += 1
             if self.polls == 1 and ack > 0 and not self._ops:
                 self._base = ack
-            self._status = {"vid": vid, "sim": sim, "players": players, "pos": pos, "t": t}
-            if self._log and vid >= 0:
+            self._status = {"vid": vid, "sim": sim, "players": players, "pos": pos, "t": t, "target": target}
+            for d in damage or []:
+                self.damage.append({"t": t, **d})
+            self.damage_lost = max(self.damage_lost, damage_lost)
+            if self._log and (vid >= 0 or target or damage):
                 row = {"t": round(t, 4), "vid": vid, "sim": sim, "players": players}
                 if pos is not None:
                     row["pos"] = list(pos)
+                if target:
+                    row["target"] = target
+                if damage:
+                    row["dmg"] = damage
                 self._log.write(json.dumps(row, ensure_ascii=False) + "\n")
             for o in self._ops:
                 if o["id"] <= ack and o["done_t"] is None:
@@ -314,7 +341,34 @@ class AddonOps:
         rows = [{"id": o["id"], "op": o["op"], "args": o["args"], "ok": o["ok"], "vid": o["vid"],
                  "latency_s": None if o["done_t"] is None else round(o["done_t"] - o["issued_t"], 3)}
                 for o in ops]
-        return {"ops": rows, "polls": self.polls}
+        return {"ops": rows, "polls": self.polls, "damage": self.damage_summary()}
+
+    def damage_summary(self) -> dict:
+        with self._lock:
+            dmg = list(self.damage)
+            lost = self.damage_lost
+        per: dict[int, dict] = {}
+        for d in dmg:
+            v = per.setdefault(d["vehicle"], {"events": 0, "amount": 0.0, "voxels": set()})
+            v["events"] += 1
+            v["amount"] += d["amount"]
+            v["voxels"].add(tuple(d["voxel"]))
+        return {"lost": lost, "vehicles": {str(k): {"events": v["events"], "amount": round(v["amount"], 3),
+                                                    "voxels": len(v["voxels"])} for k, v in per.items()}}
+
+
+def parse_damage(text: str) -> list[dict]:
+    """アドオンの dmg=<機体>:<量>:<x>:<y>:<z>:<部分>;... を読む。"""
+    out = []
+    for item in text.split(";"):
+        if not item:
+            continue
+        f = item.split(":")
+        if len(f) != 6:
+            raise ValueError(f"dmg の形が違う: {item}")
+        out.append({"vehicle": int(f[0]), "amount": float(f[1]), "voxel": [int(f[2]), int(f[3]), int(f[4])],
+                    "body": int(f[5])})
+    return out
 
 
 class Q3Runner:
@@ -539,8 +593,11 @@ class ExperimentRunner:
       addon_timeout_s（既定3）、values_grace_s（置いてから最初の値を待つ秒数。既定15）、stop_if:[{ch, lt|gt, reason}]
     """
 
-    OPS = {"move_player", "spawn", "wait", "set", "despawn", "inject"}
+    OPS = {"move_player", "spawn", "wait", "set", "despawn", "inject", "target", "target_despawn", "weather"}
     STEP_TIMEOUT = 10.0
+    FAIL_TEXT = {"move_player": "プレイヤーを移せなかった", "spawn": "機体を置けなかった",
+                 "despawn": "機体を片付けられなかった", "target": "標的を置けなかった",
+                 "target_despawn": "標的を片付けられなかった", "weather": "天気を変えられなかった"}
     CLEANUP_TIMEOUT = 5.0
 
     def __init__(self, ops: AddonOps, recorder: Recorder, commander: Commander, script: dict):
@@ -593,6 +650,10 @@ class ExperimentRunner:
                 raise ValueError(f"{i}番目の wait には seconds が要る")
             if op == "set" and not s.get("outputs"):
                 raise ValueError(f"{i}番目の set には outputs が要る")
+            if op == "target" and not (s.get("vehicle") and float(s.get("distance", 0)) > 0 and "y" in s):
+                raise ValueError(f"{i}番目の target には vehicle・distance（m）・y（高さ）が要る")
+            if op == "weather" and not all(k in s for k in ("fog", "rain", "wind")):
+                raise ValueError(f"{i}番目の weather には fog・rain・wind（0〜1）が要る")
             if op == "inject" and s.get("kind") not in ("despawn", "nan"):
                 raise ValueError(f"{i}番目の inject の kind は despawn か nan")
         return steps
@@ -710,6 +771,12 @@ class ExperimentRunner:
                 self._op = self.ops.spawn(name, tuple(s["pos"]), relative=False, t=now)
             else:
                 self._op = self.ops.spawn(name, tuple(s.get("offset", [0, 3, 15])), relative=True, t=now)
+        elif op == "target":
+            self._op = self.ops.target(s["vehicle"], float(s["distance"]), float(s["y"]), t=now)
+        elif op == "target_despawn":
+            self._op = self.ops.target_despawn(t=now)
+        elif op == "weather":
+            self._op = self.ops.weather(s["fog"], s["rain"], s["wind"], t=now)
         elif op == "set":
             self.commander.issue({int(k): float(v) for k, v in s["outputs"].items()}, t=now)
         elif op == "despawn":
@@ -730,16 +797,14 @@ class ExperimentRunner:
         s = self.steps[self._i]
         op = s["op"]
         elapsed = now - self._step_t
-        if op in ("move_player", "spawn", "despawn"):
+        if op in self.FAIL_TEXT:
             o = self.ops.get(self._op)
             if o["done_t"] is None:
                 if elapsed >= self.STEP_TIMEOUT:
-                    self._fail(now, {"move_player": "プレイヤーを移せなかった", "spawn": "機体を置けなかった",
-                                     "despawn": "機体を片付けられなかった"}[op] + "（アドオンから返事がない）")
+                    self._fail(now, self.FAIL_TEXT[op] + "（アドオンから返事がない）")
                 return
             if not o["ok"]:
-                self._fail(now, {"move_player": "プレイヤーを移せなかった", "spawn": "機体を置けなかった",
-                                 "despawn": "機体を片付けられなかった"}[op])
+                self._fail(now, self.FAIL_TEXT[op])
                 return
             if op == "spawn":
                 self._expected_vid = o["vid"]
@@ -776,8 +841,11 @@ class ExperimentRunner:
         if self._rows and self._rows[-1]["end_s"] is None:
             self._rows[-1]["end_s"] = self._rel(now)
         self.log.append(f"止めました: {reason}")
-        if self.ops.status()["vid"] >= 0:
+        st = self.ops.status()
+        if st["vid"] >= 0:
             self._cleanup_op = self.ops.despawn(t=now)
+        if st.get("target"):
+            self._cleanup_op = self.ops.target_despawn(t=now)
         self._expected_vid = None
         self.status = "cleanup"
 
@@ -901,10 +969,17 @@ def make_server(host: str, port: int, recorder: Recorder, commander: Commander |
                 pos = None
                 if all(k in q for k in ("px", "py", "pz")):
                     pos = (float(q["px"][0]), float(q["py"][0]), float(q["pz"][0]))
+                target = None
+                if "tvid" in q:
+                    target = {"vid": int(q["tvid"][0]), "sim": int(q.get("tsim", ["-1"])[0])}
+                    if all(k in q for k in ("tx", "ty", "tz")):
+                        target["pos"] = [float(q["tx"][0]), float(q["ty"][0]), float(q["tz"][0])]
+                damage = parse_damage(q["dmg"][0]) if "dmg" in q else None
+                lost = int(q.get("dlost", ["0"])[0])
             except (KeyError, ValueError) as e:
                 self._reply(200, f"error: {e}")
                 return
-            addon.on_poll(ack, ok, vid, sim, players, pos=pos)
+            addon.on_poll(ack, ok, vid, sim, players, pos=pos, target=target, damage=damage, damage_lost=lost)
             self._reply(200, addon.reply_body())
 
         def _values(self) -> None:
@@ -1016,7 +1091,28 @@ def report_q4(q: dict, load: dict | None) -> str:
     return "\n".join(lines)
 
 
-def report_run(r: dict, s: dict, load: dict | None) -> str:
+def target_status(st: dict, ops: "AddonOps") -> str:
+    tg = st.get("target")
+    if not tg and not ops.damage:
+        return ""
+    text = ""
+    if tg:
+        pos = tg.get("pos")
+        where = f" 位置 ({pos[0]:.1f}, {pos[1]:.1f}, {pos[2]:.1f})" if pos else ""
+        text = f"  標的 {tg['vid']}（動いている={'はい' if tg['sim'] == 1 else 'いいえ'}）{where}"
+    return text + f"  当たった知らせ {len(ops.damage)}件"
+
+
+def report_damage(d: dict) -> list[str]:
+    lines = []
+    for vid, v in d.get("vehicles", {}).items():
+        lines.append(f"機体 {vid} が傷ついた知らせ: {v['events']}件（ブロック {v['voxels']}か所、合計の量 {v['amount']}）")
+    if d.get("lost"):
+        lines.append(f"アドオンが溜めきれず捨てた知らせ: {d['lost']}件")
+    return lines
+
+
+def report_run(r: dict, s: dict, load: dict | None, damage: dict | None = None) -> str:
     lines = [f"---- 手順書「{r['name']}」の結果 ----"]
     for st in r["steps"]:
         mark = {True: "OK", False: "失敗", None: "途中"}[st["ok"]]
@@ -1029,6 +1125,8 @@ def report_run(r: dict, s: dict, load: dict | None) -> str:
         if r.get("stop_latency_s") is not None:
             lines.append(f"試験用の異常を起こしてから止まるまで: {r['stop_latency_s']}秒")
     lines.append(f"マイコンからの値: {s['received']}件")
+    if damage:
+        lines.extend(report_damage(damage))
     if load is not None:
         if load["available"]:
             lines.append(f"{load['process']} の負荷: CPU 平均 {load['cpu_percent_avg']}% / 最大 {load['cpu_percent_max']}%"
@@ -1149,7 +1247,7 @@ def main(argv: list[str] | None = None) -> int:
                     st = ops.status()
                     print(f"経過 {now - started:5.0f}秒  アドオンからの連絡 {ops.polls}回  "
                           f"置いている機体 {st['vid']}  プレイヤー {st['players']}人  "
-                          f"マイコンからの値 {rec.summary()['received']}件")
+                          f"マイコンからの値 {rec.summary()['received']}件{target_status(st, ops)}")
                 if runner.done:
                     break
                 continue
@@ -1200,7 +1298,7 @@ def main(argv: list[str] | None = None) -> int:
         load = sampler.summary()
         out = {"script": script, "result": runner.result(), "values": s, "load": load,
                "load_samples": sampler.samples, "addon_ops": ops.summary()}
-        text = report_run(out["result"], s, load)
+        text = report_run(out["result"], s, load, out["addon_ops"]["damage"])
     else:
         load = sampler.summary()
         out = {"values": s, "q4": runner.summary(), "load": load, "load_samples": sampler.samples,

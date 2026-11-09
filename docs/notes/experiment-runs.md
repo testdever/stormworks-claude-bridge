@@ -114,3 +114,14 @@
     → メッセージは、プレイヤーが入ってから出すように直した。DebugView 用の記録（debug.log）にも残す。
 - ゲームのアドオンの一覧が紛らわしいので、ClaudeBridge 以外の自作アドオン（ClaudeProbe、TestLandmarks）と、ゲーム本体のフォルダの専用サーバー用 ClaudeBridge を、
   本人の PC の `Desktop\relay\backup\addons-removed\` に移した。専用サーバーで試すときは、そこから戻す。
+
+## 2026-11-09 FCS の試験を自動にするための用意
+
+- 本人の FCS（射撃管制マイコン、Battle Cannon 用）の試験 A〜F は、モニターの写真を送る・手で撃つ・当たった数を目で数える形で、とても手間だった。
+  これを自動にする。最初は前の会話の V-07（2 km で撃った瞬間の照準のずれ）。FCS の一式は本人の PC の Downloads に zip で届いた（リポジトリには入れていない）。
+- 資料（ゲームから取り出した API の資料 gcrtnst/sw-luadocs、wikiwiki.jp のアドオン Lua）で確かめたこと：
+  `onVehicleDamaged(vehicle_id, damage_amount, voxel_x, voxel_y, voxel_z, body_index)`、`server.setWeather(fog, rain, wind)`（0〜1）、
+  `server.getPlayerLookDirection(peer_id)` → x, y, z, is_success。`server.setVehiclePos` は動かすたびに機体を読み込み直すので、標的を毎 tick 留めるのには使わない。
+  「onCreate の中の server.announce は、まだ接続していないので届かない」とも書いてあり、18:43 に見たことと合う。
+- アドオンに、標的を置く（プレイヤーが向いている方向の距離の先）、標的と置いた機体が傷ついた知らせを中継プログラムに送る、天気を変える、を足した。
+  中継プログラムは知らせを記録し、まとめに件数を出す。手順書の op に target・target_despawn・weather を足した。ゲームではまだ試していない。

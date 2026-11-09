@@ -47,6 +47,16 @@ class AddonOpsTest(unittest.TestCase):
         self.assertTrue(ops.get(a)["ok"])
         self.assertEqual(ops.summary()["ops"][0]["id"], 4)
 
+    def test_parse_damage(self):
+        d = relay.parse_damage("12:0.500:1:-2:3:0;12:1.000:0:0:0:1")
+        self.assertEqual(d[1], {"vehicle": 12, "amount": 1.0, "voxel": [0, 0, 0], "body": 1})
+        with self.assertRaises(ValueError):
+            relay.parse_damage("12:0.5:1")
+
+    def test_weather_range_is_checked(self):
+        with self.assertRaises(ValueError):
+            relay.AddonOps().weather(0, 0, 1.5)
+
     def test_failed_op_is_recorded(self):
         ops = relay.AddonOps()
         a = ops.spawn("nope", (0, 0, 0), relative=False, t=0.0)
@@ -152,6 +162,7 @@ class FakeServerApi:
         self.moved_to: list[tuple] = []
         self.player_moves: list[tuple] = []
         self.players = [{"id": 0, "name": "p", "steam_id": "76561198000000000"}]
+        self.weather: list[tuple] = []
 
     def table(self):
         L = self.lua
@@ -167,6 +178,8 @@ class FakeServerApi:
             "setPlayerPos": lambda pid, m: (self.player_moves.append((pid, m["x"], m["y"], m["z"])) or True),
             "getPlayerPos": lambda pid: (L.table_from({"x": 10.0, "y": 2.0, "z": -5.0}), True),
             "announce": lambda name, msg: self.announces.append(str(msg)),
+            "getPlayerLookDirection": lambda pid: (0.6, -0.2, 0.8, True),
+            "setWeather": lambda f, r, w: self.weather.append((f, r, w)),
         })
 
     def spawn(self, m, name):
@@ -375,6 +388,85 @@ class AddonLuaTest(unittest.TestCase):
         self.ops.spawn("boat", (0, 0, 0), relative=False)
         self.tick(60 * 40)
         self.assertEqual(len(self.api.vehicles), 1)
+
+    def test_target_is_placed_ahead_of_where_the_player_looks(self):
+        self.tick(3)
+        a = self.ops.target("claude_target", 2000, 1)
+        self.tick(6)
+        self.assertTrue(self.ops.get(a)["ok"])
+        # プレイヤー (10, 2, -5)、見ている向きの水平成分 (0.6, 0.8)
+        self.assertEqual(self.api.spawned_at, [(10.0 + 1200.0, 1.0, -5.0 + 1600.0)])
+        self.assertTrue(any("target claude_target" in m for m in self.api.announces))
+        st = self.ops.status()["target"]
+        self.assertEqual(st["vid"], 101)
+        self.assertEqual(st["sim"], 1)
+        self.assertEqual(self.lua.globals().g_savedata.tvid, 101)
+        b = self.ops.target_despawn()
+        self.tick(6)
+        self.assertTrue(self.ops.get(b)["ok"])
+        self.assertEqual(self.api.vehicles, {})
+        self.assertIsNone(self.ops.status()["target"])
+
+    def test_damage_to_the_target_reaches_the_relay(self):
+        self.tick(3)
+        self.ops.target("claude_target", 2000, 1)
+        self.tick(6)
+        g = self.lua.globals()
+        for i in range(25):
+            g.onVehicleDamaged(101, 0.5, i, 1, 2, 0)
+        g.onVehicleDamaged(999, 3.0, 0, 0, 0, 0)   # 関係ない機体は数えない
+        g.onVehicleDamaged(101, -1.0, 0, 0, 0, 0)  # 直された（負）は数えない
+        self.tick(10)
+        d = self.ops.damage
+        self.assertEqual(len(d), 25)
+        self.assertEqual(d[0]["vehicle"], 101)
+        self.assertEqual(d[3]["voxel"], [3, 1, 2])
+        self.assertEqual(len(g.dmg), 0)
+        s = self.ops.damage_summary()
+        self.assertEqual(s["vehicles"]["101"]["events"], 25)
+        self.assertEqual(s["vehicles"]["101"]["voxels"], 25)
+        self.tick(60)
+        self.assertTrue(any("target damaged x25" in m for m in self.api.announces))
+
+    def test_damage_is_kept_until_the_relay_answers(self):
+        self.tick(3)
+        self.ops.target("claude_target", 2000, 1)
+        self.tick(6)
+        g = self.lua.globals()
+        self.api.pending.clear()          # 送ってある要求の返事は来ない（ゲームの中で消えた）
+        g.onVehicleDamaged(101, 0.5, 1, 2, 3, 0)
+        for _ in range(200):              # 返事がないので、間隔を伸ばしながら送り直す（中継プログラムには届かない）
+            g.onTick(1)
+        self.assertGreater(len(self.api.queue), 0)
+        self.assertEqual(len(g.dmg), 1, "返事が来るまで捨てない")
+        self.api.queue = self.api.queue[-1:]  # 最後に送ったもの（知らせつき）だけが届く
+        self.tick(5)
+        self.assertEqual(len(self.ops.damage), 1)
+        self.assertEqual(len(g.dmg), 0)
+
+    def test_weather(self):
+        self.tick(3)
+        a = self.ops.weather(0, 0.2, 0.5)
+        self.tick(6)
+        self.assertTrue(self.ops.get(a)["ok"])
+        self.assertEqual(self.api.weather, [(0.0, 0.2, 0.5)])
+
+    def test_leftover_target_is_despawned_when_world_loads(self):
+        self.api.vehicles[77] = "claude_target"
+        g = self.lua.globals()
+        g.g_savedata = self.lua.table_from({"vid": -1, "gid": -1, "tvid": 77, "tgid": 1077})
+        g.onCreate(False)
+        self.assertEqual(self.api.vehicles, {})
+        self.assertEqual(g.g_savedata.tvid, -1)
+
+    def test_target_is_despawned_when_relay_is_gone(self):
+        self.tick(3)
+        self.ops.target("claude_target", 2000, 1)
+        self.tick(6)
+        g = self.lua.globals()
+        for _ in range(60 * 35):
+            g.onTick(1)
+        self.assertEqual(self.api.vehicles, {})
 
     def test_q3_runner_end_to_end(self):
         r = relay.Q3Runner(self.ops, self.rec, vehicle="boat", offset=(0, 3, 15), relative=True,

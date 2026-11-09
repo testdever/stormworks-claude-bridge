@@ -252,3 +252,26 @@ Windows のスマート アプリ コントロールが lupa の一部（Lua 5.3
   （チャットに「[Claude] despawning leftover vehicle …」）。一時停止を解いたあと、中継プログラムから30秒返事がなければ、そのときも片付ける
   （「[Claude] no reply from relay, despawning …」）。
 - **残った機体の値が混ざった：** 2台以上のマイコンから同時に値が届くと、見張りが「2台以上のマイコンから値が届いている」で止める。
+
+## FCS の試験の下調べ：標的に当たったことを数えられるか
+
+射撃管制マイコン（FCS）の試験を自動にするための下調べ。アドオンが標的を置き、当たったことをゲームの知らせ（`onVehicleDamaged`）で数える。
+
+### 用意（一度だけ）
+
+1. **標的を作る：** 一辺 4 m くらいの、水に浮く標的を作り、`claude_target` の名前で保存する。マイコンなどは要らない。
+2. 新しいアドオン（`game/addon/ClaudeBridge/script.lua`）を置き、「Claude Bridge」を有効にした新しいワールドを作る。
+   **ワールドの設定で、機体が壊れる（vehicle damage）をオンにしておく。** オフだと当たっても知らせが来ない見込み。
+3. `test calc` を、いつものように陸に固定して出す。
+
+### 手順
+
+1. `test calc` のところに立ち、撃ちたい海の方向を向いて待つ。中継プログラムを起動する（デスクトップの relay フォルダで）。
+
+   ```
+   python stormworks-claude-bridge/relay/relay.py --run stormworks-claude-bridge/experiments/fcs_probe_target.json
+   ```
+
+2. 10 秒後、向いている方向の 2 km 先に標的が出て、チャットに座標が出る（「[Claude] target claude_target id=… at X=… Y=… Z=…」）。
+   その座標をキーパッドで FCS に入れて撃つ。当たると、チャットに「[Claude] target damaged x…」と出る。
+3. 5 分たつと標的が片付けられ、結果に「機体 … が傷ついた知らせ」の件数が出る。
