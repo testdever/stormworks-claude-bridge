@@ -2,6 +2,20 @@
 
 Claude に Stormworks の計測実験を任せるための仕組み。企画書は `docs/brief.md`、決めたことは `docs/decisions/`、試作で確かめることは `docs/verification.md`。
 
+## ファイルの置き場所（リポジトリ → 本人の PC）
+
+| リポジトリのファイル | PC での置き場所 | 使うとき |
+|---|---|---|
+| `relay/relay.py` | デスクトップの `relay.py`（どこでもよい。そこで `python relay.py …` を実行する） | いつも |
+| `game/addon/server/ClaudeBridge/script.lua` | `Steam\steamapps\common\Stormworks\rom\data\missions\ClaudeBridge\script.lua` | 専用サーバー |
+| `game/addon/server/ClaudeBridge/playlist.xml` | `Steam\steamapps\common\Stormworks\rom\data\missions\ClaudeBridge\playlist.xml` | 専用サーバー |
+| `game/addon/ClaudeBridge/script.lua` | `%APPDATA%\Stormworks\data\missions\ClaudeBridge\script.lua` | 1人用のゲーム本体 |
+| `game/addon/ClaudeBridge/playlist.xml` | `%APPDATA%\Stormworks\data\missions\ClaudeBridge\playlist.xml` | 1人用のゲーム本体 |
+| `game/q2_values_and_commands.lua` | 試験用の機体のマイコンの Lua ブロック（貼り付け） | 機体を作るとき |
+
+アドオンの `script.lua` を貼り替えたら、ワールドを作り直す（専用サーバーは `%APPDATA%\Stormworks\saves\autosave_server` を消す）。
+Claude は変更のたびに、どのファイルを変えたかと、新しく増えたファイルを伝える。
+
 ## 試作 Q1：マイコンから値が届くか
 
 機体のマイコンから、同じPCの中継プログラムへ、物理センサーの値が1秒に10回以上・60秒間・欠けずに届くかを確かめる。
