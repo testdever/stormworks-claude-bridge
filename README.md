@@ -319,3 +319,14 @@ python stormworks-claude-bridge/tools/put_lua.py "test calc" stormworks-claude-b
 2. 約 16 秒後に 1 km 先に標的が出て、10 発撃つ。続けて同じ方向の 2 km 先に標的が出て、10 発撃つ（全部で3〜4分）。その間はゲームを裏にして、ほかの作業をしていてよい。
 3. 結果に、距離ごとの「何発中何発当たり」と「撃った瞬間の照準のずれ（偏り・ばらつき、m）」、標的の向きの変わり方が出る。
    途中で止めたいときは、チャットに `?claude stop`。
+
+### 場所を固定して流す（保存 claude_fcs）
+
+保存 claude_fcs を読み込むだけでよい（どちらを向いていてもよい。保存した場所の近くにいること）。test calc は手順書が決まった位置に海へ向けて出し、
+標的は決まった点から決まった方向に置く。機体の傷・電気と弾の無限・天気（波）も手順書が設定する。
+
+```
+python stormworks-claude-bridge/relay/relay.py --run stormworks-claude-bridge/experiments/fcs_v07_claude_fcs.json
+```
+
+ほかの場所で流すときは、`fcs_v07_auto.json`（本人の向きで置く）を一度流し、その記録から位置と方向を読んで、同じ形の手順書を作る。
