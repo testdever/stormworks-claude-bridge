@@ -29,17 +29,20 @@ Claude は手順書（`experiments/*.json`）を書き、`python relay/relay.py 
 
 誰も接続していない専用サーバーは、地面と海が読み込まれず機体が落ち続けるので外した（`docs/notes/dedicated-server.md`）。
 
-## 次にやること
+## 次にやること（2026-11-09 18:30 時点）
 
-1. **Q6・Q9：** `python relay/relay.py --run experiments/q6_physics_sensor_order.json`。
-   前回は、置いてから3秒で値が来ず止まった。最初の値を15秒まで待つように直した版で、もう一度。
-   その間、本人がふだんの作業をして、マウス・キーボード・画面を取られたか、音が気になったかを聞く（Q9）。
-   15秒たっても値が来なければ、`claude_test` のマイコンの Lua が新しい版で保存されているか、Lua のエラーが出ていないかを本人に確かめてもらう。
-2. **Q7：** `experiments/q7_vanish.json`、`q7_nan.json`、`q7_pause.json` を順に流す。q7_pause は本人がゲームを Esc で一時停止する。
-3. **ゲームが終了時に落ちる件：** `docs/notes/experiment-runs.md` の最後。実験のあと `python relay/relay.py --seconds 0` を動かしたまま
-   ワールドを抜けて、落ちるかを見る。落ちなければ、アドオンとマイコンが返事のない間に要求を溜めないよう直す。
-4. Q6 の記録から、物理センサーの出力の順番を読み取る（Q1 の読み取りは `docs/evidence/E-006-physics-sensor-channels.md`）。
-5. 確かめたら、`docs/verification.md` の判定と `docs/evidence/` の証拠を書き、決定の `[trial]` を片付ける。
+済み：Q6・Q7・Q9 合格。D-003 の [trial] を片付けた。送り直しの間隔を伸ばす Lua で、中継プログラムを止めたままゲームを終了しても落ちなかった（1回）。
+
+1. **物理センサーの出力の順番：** 本人が `claude_test` の速度ピボットに電源をつないで保存し直す。開けた陸の上に立ってもらい、
+   `python stormworks-claude-bridge/relay/relay.py --run stormworks-claude-bridge/experiments/q6_no_move.json`（デスクトップの relay フォルダで）。
+   回す前・回している間・止めたあとの値から、回転に関わる出力を読む（Q1 の読み取りは E-006）。
+2. **Q10：** 本人が実際にしたい計測実験の規模で1回回し、重さを感じたかを聞く。合格なら D-004 の [trial] を片付ける。
+3. 落ちる件は、新しい Lua でもう何回か様子を見る。
+
+本人の PC での動かし方：デスクトップの `relayelay.py` は古いので使わない。リポジトリ（`Desktopelay\stormworks-claude-bridge`）の
+`relay/relay.py` と `experiments/` を、デスクトップの `relay` フォルダから動かす（記録は `relay\logs\` に残る）。
+手順書は、ワールドの座標を決め打ちにせず、本人の立っている場所から 6m 先に置く（ワールドごとに最初の島の場所が違う）。
+Lua のテストは、スマート アプリ コントロールに止められない Lua 5.1 を使う（`relay/tests/luart.py`）。
 
 ## ファイルの置き場所（本人の PC）
 
