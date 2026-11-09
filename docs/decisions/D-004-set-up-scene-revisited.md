@@ -112,18 +112,18 @@ note = ""
 [[cell]]
 option = "B"
 criterion = "W1"
-value = "-"
-grade = "measured"
-source = "docs/evidence/E-011-server-addon-not-running.md"
-note = ""
+value = "+"
+grade = "inference"
+source = ""
+note = "C と同じ専用サーバーの形を別PCで動かす。E-014 はメインPCで確かめたもの。使い始めはサーバーを起動するだけでよい"
 
 [[cell]]
 option = "C"
 criterion = "W1"
-value = "-"
-grade = "measured"
-source = "docs/evidence/E-011-server-addon-not-running.md"
-note = ""
+value = "+"
+grade = "inference"
+source = ""
+note = "誰も接続していない専用サーバーで、アドオンが機体を置き、キープアクティブの機体の物理が60秒進み続けた（E-014）。専用サーバーは server64.exe を起動するだけでワールドが始まる。A はゲーム本体なので、使い始めるたびにメニューを操作してワールドに入る必要がある（E-003）"
 
 [[cell]]
 option = "J"
@@ -152,18 +152,18 @@ note = "中身は A と同じだが、仮想マシンで GPU が使えないと�
 [[cell]]
 option = "B"
 criterion = "W2"
-value = "S"
+value = "-"
 grade = "inference"
 source = ""
-note = "機体の置き方と値の読み方は A と同じ"
+note = "C と同じく、キープアクティブブロックが要り、物理センサーの位置が使えない"
 
 [[cell]]
 option = "C"
 criterion = "W2"
-value = "S"
+value = "-"
 grade = "inference"
 source = ""
-note = "機体の置き方と値の読み方は A と同じ"
+note = "試す機体にキープアクティブブロックを積む必要がある（積まないとマイコンも物理も動かない、E-014）。物理センサーの位置（ch1〜3）が専用サーバーでは 0 になるので、位置を使う実験には別の手段が要る"
 
 [[cell]]
 option = "J"

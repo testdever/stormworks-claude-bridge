@@ -1,0 +1,438 @@
+{
+  "values": {
+    "received": 1025,
+    "malformed": 0,
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 824,
+    "missing": 0,
+    "duration_s": 59.318,
+    "full_seconds": 59,
+    "min_per_sec": 14,
+    "max_per_sec": 21,
+    "avg_per_sec": 17.27,
+    "q1_pass": false
+  },
+  "q4": {
+    "vehicles": [
+      {
+        "name": "claude_test",
+        "spawn_ok": true,
+        "max_players": 0,
+        "sim_seen": [
+          0
+        ],
+        "lifts": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "windows": [
+          {
+            "from_s": 0.0,
+            "values": 0,
+            "changed": false
+          },
+          {
+            "from_s": 10.0,
+            "values": 0,
+            "changed": false
+          },
+          {
+            "from_s": 20.0,
+            "values": 0,
+            "changed": false
+          },
+          {
+            "from_s": 30.0,
+            "values": 0,
+            "changed": false
+          },
+          {
+            "from_s": 40.0,
+            "values": 0,
+            "changed": false
+          },
+          {
+            "from_s": 50.0,
+            "values": 0,
+            "changed": false
+          }
+        ],
+        "despawn_ok": true,
+        "pass": false
+      },
+      {
+        "name": "claude_test_ka",
+        "spawn_ok": true,
+        "max_players": 0,
+        "sim_seen": [
+          0,
+          1
+        ],
+        "lifts": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "windows": [
+          {
+            "from_s": 0.0,
+            "values": 189,
+            "changed": true
+          },
+          {
+            "from_s": 10.0,
+            "values": 174,
+            "changed": true
+          },
+          {
+            "from_s": 20.0,
+            "values": 158,
+            "changed": true
+          },
+          {
+            "from_s": 30.0,
+            "values": 158,
+            "changed": true
+          },
+          {
+            "from_s": 40.0,
+            "values": 158,
+            "changed": true
+          },
+          {
+            "from_s": 50.0,
+            "values": 186,
+            "changed": true
+          }
+        ],
+        "despawn_ok": true,
+        "pass": true
+      }
+    ],
+    "q4_pass": true
+  },
+  "load": {
+    "process": "server64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": 1.8,
+    "cpu_percent_max": 5.2,
+    "memory_mb_max": 1363.6,
+    "samples": 27
+  },
+  "load_samples": [
+    {
+      "t": 695.836279,
+      "memory_mb": 299.8,
+      "cpu_percent": null
+    },
+    {
+      "t": 701.124132,
+      "memory_mb": 1315.1,
+      "cpu_percent": 5.2
+    },
+    {
+      "t": 706.3878832,
+      "memory_mb": 1362.8,
+      "cpu_percent": 2.4
+    },
+    {
+      "t": 711.6542873,
+      "memory_mb": 1362.8,
+      "cpu_percent": 1.5
+    },
+    {
+      "t": 716.9335936,
+      "memory_mb": 1362.8,
+      "cpu_percent": 2.0
+    },
+    {
+      "t": 722.209985,
+      "memory_mb": 1362.8,
+      "cpu_percent": 1.9
+    },
+    {
+      "t": 727.4784183,
+      "memory_mb": 1362.8,
+      "cpu_percent": 1.5
+    },
+    {
+      "t": 732.7584575,
+      "memory_mb": 1362.8,
+      "cpu_percent": 1.7
+    },
+    {
+      "t": 738.0277147,
+      "memory_mb": 1362.9,
+      "cpu_percent": 1.1
+    },
+    {
+      "t": 743.2926815,
+      "memory_mb": 1362.9,
+      "cpu_percent": 1.9
+    },
+    {
+      "t": 748.5690753,
+      "memory_mb": 1362.9,
+      "cpu_percent": 1.2
+    },
+    {
+      "t": 753.8351816,
+      "memory_mb": 1362.9,
+      "cpu_percent": 0.9
+    },
+    {
+      "t": 759.0971761,
+      "memory_mb": 1362.8,
+      "cpu_percent": 1.1
+    },
+    {
+      "t": 764.355275,
+      "memory_mb": 1362.8,
+      "cpu_percent": 1.5
+    },
+    {
+      "t": 769.6230475,
+      "memory_mb": 1363.4,
+      "cpu_percent": 1.6
+    },
+    {
+      "t": 774.883243,
+      "memory_mb": 1363.4,
+      "cpu_percent": 1.9
+    },
+    {
+      "t": 780.1473109,
+      "memory_mb": 1363.5,
+      "cpu_percent": 1.9
+    },
+    {
+      "t": 785.4051099,
+      "memory_mb": 1363.5,
+      "cpu_percent": 1.7
+    },
+    {
+      "t": 790.6740233,
+      "memory_mb": 1363.6,
+      "cpu_percent": 1.0
+    },
+    {
+      "t": 795.9328647,
+      "memory_mb": 1363.6,
+      "cpu_percent": 2.1
+    },
+    {
+      "t": 801.1918461,
+      "memory_mb": 1363.6,
+      "cpu_percent": 1.1
+    },
+    {
+      "t": 806.4550464,
+      "memory_mb": 1363.6,
+      "cpu_percent": 1.4
+    },
+    {
+      "t": 811.7243139,
+      "memory_mb": 1363.6,
+      "cpu_percent": 2.2
+    },
+    {
+      "t": 816.9898408,
+      "memory_mb": 1363.6,
+      "cpu_percent": 2.1
+    },
+    {
+      "t": 822.263412,
+      "memory_mb": 1363.6,
+      "cpu_percent": 2.2
+    },
+    {
+      "t": 827.5396527,
+      "memory_mb": 1363.6,
+      "cpu_percent": 1.4
+    },
+    {
+      "t": 832.8107221,
+      "memory_mb": 1363.5,
+      "cpu_percent": 1.4
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 1,
+        "op": "spawn",
+        "args": [
+          "claude_test",
+          "-260.9",
+          "8",
+          "-18949",
+          "0"
+        ],
+        "ok": true,
+        "vid": 1,
+        "latency_s": 0.199
+      },
+      {
+        "id": 2,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 1,
+        "latency_s": 0.075
+      },
+      {
+        "id": 3,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 1,
+        "latency_s": 0.072
+      },
+      {
+        "id": 4,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 1,
+        "latency_s": 0.051
+      },
+      {
+        "id": 5,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 1,
+        "latency_s": 0.088
+      },
+      {
+        "id": 6,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 1,
+        "latency_s": 0.074
+      },
+      {
+        "id": 7,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 1,
+        "latency_s": 0.039
+      },
+      {
+        "id": 8,
+        "op": "despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.064
+      },
+      {
+        "id": 9,
+        "op": "spawn",
+        "args": [
+          "claude_test_ka",
+          "-260.9",
+          "8",
+          "-18949",
+          "0"
+        ],
+        "ok": true,
+        "vid": 2,
+        "latency_s": 0.08
+      },
+      {
+        "id": 10,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 2,
+        "latency_s": 0.055
+      },
+      {
+        "id": 11,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 2,
+        "latency_s": 0.076
+      },
+      {
+        "id": 12,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 2,
+        "latency_s": 0.087
+      },
+      {
+        "id": 13,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 2,
+        "latency_s": 0.094
+      },
+      {
+        "id": 14,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 2,
+        "latency_s": 0.11
+      },
+      {
+        "id": 15,
+        "op": "lift",
+        "args": [
+          "15"
+        ],
+        "ok": true,
+        "vid": 2,
+        "latency_s": 0.084
+      },
+      {
+        "id": 16,
+        "op": "despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.111
+      }
+    ],
+    "polls": 2532
+  }
+}
