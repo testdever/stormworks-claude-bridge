@@ -1,0 +1,551 @@
+{
+  "script": {
+    "name": "FCS 下調べ：2 km 先の標的に当たったことを数えられるか",
+    "note": "本人は test calc（陸に固定した砲）のところに立ち、撃ちたい海の方向を向いて待つ。10 秒後、その方向の 2 km 先に claude_target を置き、その座標を test calc のつなぎのマイコン（q2 の Lua）の出力 1 = X、2 = Z、3 = Y（高さ）、4 = 1 でで FCS の目標の入力に渡し続ける。本人は射撃許可を入れて撃つ。当たった知らせ、標的が動き続けているか、天気が変わったかを見る。手で操作するので、一時停止しても 10 分までは止めない",
+    "watch": {
+      "addon_timeout_s": 600
+    },
+    "steps": [
+      {
+        "op": "weather",
+        "fog": 0,
+        "rain": 0,
+        "wind": 0,
+        "label": "天気を穏やかにする（霧・雨・風を 0）"
+      },
+      {
+        "op": "wait",
+        "seconds": 10,
+        "label": "撃ちたい方向を向いて待つ"
+      },
+      {
+        "op": "target",
+        "vehicle": "claude_target",
+        "distance": 2000,
+        "y": 2,
+        "label": "向いている方向の 2 km 先に標的を置く"
+      },
+      {
+        "op": "aim_target",
+        "label": "標的の座標を FCS に渡し続ける（test calc の並び：ch1 = X、ch2 = Z、ch3 = Y）",
+        "channels": [
+          1,
+          3,
+          2,
+          4
+        ]
+      },
+      {
+        "op": "wait",
+        "seconds": 300,
+        "label": "射撃許可を入れて撃つ"
+      },
+      {
+        "op": "target_despawn",
+        "label": "標的を片付ける（FCS の目標は無効にする）"
+      }
+    ]
+  },
+  "result": {
+    "name": "FCS 下調べ：2 km 先の標的に当たったことを数えられるか",
+    "status": "completed",
+    "reason": "",
+    "steps": [
+      {
+        "i": 1,
+        "op": "weather",
+        "label": "天気を穏やかにする（霧・雨・風を 0）",
+        "start_s": 0.0,
+        "end_s": 0.101,
+        "ok": true
+      },
+      {
+        "i": 2,
+        "op": "wait",
+        "label": "撃ちたい方向を向いて待つ",
+        "start_s": 0.101,
+        "end_s": 10.139,
+        "ok": true
+      },
+      {
+        "i": 3,
+        "op": "target",
+        "label": "向いている方向の 2 km 先に標的を置く",
+        "start_s": 10.139,
+        "end_s": 10.24,
+        "ok": true
+      },
+      {
+        "i": 4,
+        "op": "aim_target",
+        "label": "標的の座標を FCS に渡し続ける（test calc の並び：ch1 = X、ch2 = Z、ch3 = Y）",
+        "start_s": 10.24,
+        "end_s": 10.34,
+        "ok": true
+      },
+      {
+        "i": 5,
+        "op": "wait",
+        "label": "射撃許可を入れて撃つ",
+        "start_s": 10.34,
+        "end_s": 310.44,
+        "ok": true
+      },
+      {
+        "i": 6,
+        "op": "target_despawn",
+        "label": "標的を片付ける（FCS の目標は無効にする）",
+        "start_s": 310.44,
+        "end_s": 310.542,
+        "ok": true
+      }
+    ],
+    "injects": [],
+    "stopped_at_s": null,
+    "stop_latency_s": null
+  },
+  "values": {
+    "received": 6470,
+    "malformed": 0,
+    "malformed_examples": [],
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 310.515,
+    "full_seconds": 310,
+    "min_per_sec": 20,
+    "max_per_sec": 21,
+    "avg_per_sec": 20.84,
+    "q1_pass": true
+  },
+  "load": {
+    "process": "stormworks64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": 10.6,
+    "cpu_percent_max": 13.2,
+    "memory_mb_max": 2568.7,
+    "samples": 74
+  },
+  "load_samples": [
+    {
+      "t": 35456.4302886,
+      "memory_mb": 2559.1,
+      "cpu_percent": null
+    },
+    {
+      "t": 35461.7415281,
+      "memory_mb": 2559.1,
+      "cpu_percent": 5.5
+    },
+    {
+      "t": 35467.0479253,
+      "memory_mb": 2559.1,
+      "cpu_percent": 5.5
+    },
+    {
+      "t": 35472.3393041,
+      "memory_mb": 2559.1,
+      "cpu_percent": 5.6
+    },
+    {
+      "t": 35477.6269518,
+      "memory_mb": 2559.1,
+      "cpu_percent": 5.6
+    },
+    {
+      "t": 35482.9518925,
+      "memory_mb": 2559.1,
+      "cpu_percent": 5.3
+    },
+    {
+      "t": 35488.2507854,
+      "memory_mb": 2559.1,
+      "cpu_percent": 5.3
+    },
+    {
+      "t": 35493.5493404,
+      "memory_mb": 2559.1,
+      "cpu_percent": 5.4
+    },
+    {
+      "t": 35498.8492566,
+      "memory_mb": 2559.1,
+      "cpu_percent": 5.5
+    },
+    {
+      "t": 35504.1477785,
+      "memory_mb": 2559.1,
+      "cpu_percent": 5.4
+    },
+    {
+      "t": 35509.4431959,
+      "memory_mb": 2559.1,
+      "cpu_percent": 5.7
+    },
+    {
+      "t": 35514.8451131,
+      "memory_mb": 2559.1,
+      "cpu_percent": 5.5
+    },
+    {
+      "t": 35520.165709,
+      "memory_mb": 2558.6,
+      "cpu_percent": 5.6
+    },
+    {
+      "t": 35525.4796872,
+      "memory_mb": 2558.6,
+      "cpu_percent": 5.5
+    },
+    {
+      "t": 35530.8010592,
+      "memory_mb": 2556.1,
+      "cpu_percent": 4.1
+    },
+    {
+      "t": 35536.099007,
+      "memory_mb": 2557.6,
+      "cpu_percent": 4.0
+    },
+    {
+      "t": 35541.3840423,
+      "memory_mb": 2559.7,
+      "cpu_percent": 9.6
+    },
+    {
+      "t": 35546.6878483,
+      "memory_mb": 2557.8,
+      "cpu_percent": 12.3
+    },
+    {
+      "t": 35552.0059657,
+      "memory_mb": 2557.9,
+      "cpu_percent": 11.8
+    },
+    {
+      "t": 35557.3062117,
+      "memory_mb": 2558.2,
+      "cpu_percent": 11.2
+    },
+    {
+      "t": 35562.6207873,
+      "memory_mb": 2558.3,
+      "cpu_percent": 11.6
+    },
+    {
+      "t": 35567.9348142,
+      "memory_mb": 2559.1,
+      "cpu_percent": 11.4
+    },
+    {
+      "t": 35573.247667,
+      "memory_mb": 2559.3,
+      "cpu_percent": 11.9
+    },
+    {
+      "t": 35578.5488115,
+      "memory_mb": 2559.4,
+      "cpu_percent": 11.8
+    },
+    {
+      "t": 35583.8559178,
+      "memory_mb": 2559.5,
+      "cpu_percent": 11.8
+    },
+    {
+      "t": 35589.1701634,
+      "memory_mb": 2560.0,
+      "cpu_percent": 11.7
+    },
+    {
+      "t": 35594.4743132,
+      "memory_mb": 2561.1,
+      "cpu_percent": 11.9
+    },
+    {
+      "t": 35599.7740017,
+      "memory_mb": 2560.6,
+      "cpu_percent": 11.6
+    },
+    {
+      "t": 35605.090114,
+      "memory_mb": 2560.8,
+      "cpu_percent": 12.1
+    },
+    {
+      "t": 35610.4153451,
+      "memory_mb": 2561.0,
+      "cpu_percent": 11.8
+    },
+    {
+      "t": 35615.7167013,
+      "memory_mb": 2561.4,
+      "cpu_percent": 11.6
+    },
+    {
+      "t": 35621.0315569,
+      "memory_mb": 2561.3,
+      "cpu_percent": 11.7
+    },
+    {
+      "t": 35626.3436674,
+      "memory_mb": 2561.5,
+      "cpu_percent": 11.7
+    },
+    {
+      "t": 35631.645194,
+      "memory_mb": 2561.9,
+      "cpu_percent": 11.7
+    },
+    {
+      "t": 35636.9449452,
+      "memory_mb": 2561.8,
+      "cpu_percent": 11.7
+    },
+    {
+      "t": 35642.2546965,
+      "memory_mb": 2562.3,
+      "cpu_percent": 12.1
+    },
+    {
+      "t": 35647.5530136,
+      "memory_mb": 2562.3,
+      "cpu_percent": 12.2
+    },
+    {
+      "t": 35652.8519217,
+      "memory_mb": 2562.5,
+      "cpu_percent": 11.8
+    },
+    {
+      "t": 35658.1873356,
+      "memory_mb": 2562.5,
+      "cpu_percent": 12.0
+    },
+    {
+      "t": 35663.5275463,
+      "memory_mb": 2562.8,
+      "cpu_percent": 11.5
+    },
+    {
+      "t": 35668.8336541,
+      "memory_mb": 2562.9,
+      "cpu_percent": 12.1
+    },
+    {
+      "t": 35674.1747818,
+      "memory_mb": 2562.5,
+      "cpu_percent": 12.0
+    },
+    {
+      "t": 35679.4807425,
+      "memory_mb": 2562.7,
+      "cpu_percent": 11.9
+    },
+    {
+      "t": 35684.7941724,
+      "memory_mb": 2563.1,
+      "cpu_percent": 12.1
+    },
+    {
+      "t": 35690.1091688,
+      "memory_mb": 2563.5,
+      "cpu_percent": 12.2
+    },
+    {
+      "t": 35695.4325767,
+      "memory_mb": 2563.8,
+      "cpu_percent": 11.7
+    },
+    {
+      "t": 35700.7416136,
+      "memory_mb": 2564.0,
+      "cpu_percent": 10.6
+    },
+    {
+      "t": 35706.0601316,
+      "memory_mb": 2564.2,
+      "cpu_percent": 11.5
+    },
+    {
+      "t": 35711.3685328,
+      "memory_mb": 2564.3,
+      "cpu_percent": 12.3
+    },
+    {
+      "t": 35716.6945456,
+      "memory_mb": 2564.2,
+      "cpu_percent": 11.6
+    },
+    {
+      "t": 35722.0157534,
+      "memory_mb": 2564.5,
+      "cpu_percent": 12.8
+    },
+    {
+      "t": 35727.3951197,
+      "memory_mb": 2564.4,
+      "cpu_percent": 12.7
+    },
+    {
+      "t": 35732.7886775,
+      "memory_mb": 2564.8,
+      "cpu_percent": 12.3
+    },
+    {
+      "t": 35738.1000761,
+      "memory_mb": 2564.7,
+      "cpu_percent": 11.9
+    },
+    {
+      "t": 35743.4110671,
+      "memory_mb": 2565.2,
+      "cpu_percent": 11.9
+    },
+    {
+      "t": 35748.7296785,
+      "memory_mb": 2565.1,
+      "cpu_percent": 12.0
+    },
+    {
+      "t": 35754.0434765,
+      "memory_mb": 2565.5,
+      "cpu_percent": 12.0
+    },
+    {
+      "t": 35759.3870381,
+      "memory_mb": 2565.4,
+      "cpu_percent": 12.3
+    },
+    {
+      "t": 35764.7000781,
+      "memory_mb": 2565.9,
+      "cpu_percent": 12.0
+    },
+    {
+      "t": 35770.0088029,
+      "memory_mb": 2566.2,
+      "cpu_percent": 12.2
+    },
+    {
+      "t": 35775.3121588,
+      "memory_mb": 2566.4,
+      "cpu_percent": 12.6
+    },
+    {
+      "t": 35780.6494731,
+      "memory_mb": 2566.5,
+      "cpu_percent": 12.2
+    },
+    {
+      "t": 35785.9722705,
+      "memory_mb": 2566.5,
+      "cpu_percent": 12.1
+    },
+    {
+      "t": 35791.2939446,
+      "memory_mb": 2567.0,
+      "cpu_percent": 12.3
+    },
+    {
+      "t": 35796.6235603,
+      "memory_mb": 2566.8,
+      "cpu_percent": 12.3
+    },
+    {
+      "t": 35801.933258,
+      "memory_mb": 2567.1,
+      "cpu_percent": 11.9
+    },
+    {
+      "t": 35807.24188,
+      "memory_mb": 2567.2,
+      "cpu_percent": 12.3
+    },
+    {
+      "t": 35812.562397,
+      "memory_mb": 2567.5,
+      "cpu_percent": 12.5
+    },
+    {
+      "t": 35817.9321727,
+      "memory_mb": 2567.7,
+      "cpu_percent": 13.2
+    },
+    {
+      "t": 35823.2884301,
+      "memory_mb": 2567.6,
+      "cpu_percent": 12.7
+    },
+    {
+      "t": 35828.6244777,
+      "memory_mb": 2567.9,
+      "cpu_percent": 11.9
+    },
+    {
+      "t": 35833.932503,
+      "memory_mb": 2568.4,
+      "cpu_percent": 11.7
+    },
+    {
+      "t": 35839.2405236,
+      "memory_mb": 2568.7,
+      "cpu_percent": 11.6
+    },
+    {
+      "t": 35844.5516741,
+      "memory_mb": 2568.6,
+      "cpu_percent": 12.1
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 6,
+        "op": "weather",
+        "args": [
+          "0",
+          "0",
+          "0"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.079
+      },
+      {
+        "id": 7,
+        "op": "target",
+        "args": [
+          "claude_target",
+          "2000",
+          "2"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.077
+      },
+      {
+        "id": 8,
+        "op": "target_despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.065
+      }
+    ],
+    "polls": 6470,
+    "damage": {
+      "lost": 0,
+      "vehicles": {
+        "29": {
+          "events": 3793,
+          "amount": 5584.0,
+          "voxels": 414
+        }
+      }
+    }
+  }
+}
