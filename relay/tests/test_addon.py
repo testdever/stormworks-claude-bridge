@@ -34,6 +34,19 @@ class AddonOpsTest(unittest.TestCase):
         self.assertEqual([(o["op"], o["ok"], o["latency_s"]) for o in s["ops"]],
                          [("spawn", True, 0.5), ("despawn", True, 0.6)])
 
+    def test_ids_continue_after_addon_ack_when_relay_restarts(self):
+        # 同じワールドのまま中継プログラムを起動し直すと、アドオンは前の番号（ここでは3）まで受け取り済みと返してくる
+        ops = relay.AddonOps()
+        ops.on_poll(ack=3, ok=True, vid=-1, sim=-1, players=1, t=0.0)
+        a = ops.spawn("boat", (0, 3, 6), relative=True, t=0.1)
+        self.assertEqual(a, 4)
+        self.assertEqual(ops.reply_body(), "ok|4|spawn|boat|0|3|6|1")
+        ops.on_poll(ack=3, ok=True, vid=-1, sim=-1, players=1, t=0.2)
+        self.assertIsNone(ops.get(a)["done_t"], "前の番号の返事で、新しい指示を終わったことにしない")
+        ops.on_poll(ack=4, ok=True, vid=9, sim=1, players=1, t=0.3)
+        self.assertTrue(ops.get(a)["ok"])
+        self.assertEqual(ops.summary()["ops"][0]["id"], 4)
+
     def test_failed_op_is_recorded(self):
         ops = relay.AddonOps()
         a = ops.spawn("nope", (0, 0, 0), relative=False, t=0.0)

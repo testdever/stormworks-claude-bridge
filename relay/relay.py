@@ -232,12 +232,15 @@ class AddonOps:
         self._ops: list[dict] = []  # {id, op, args, issued_t, done_t, ok, vid}
         self._status = {"vid": -1, "sim": -1, "players": 0, "pos": None, "t": None}
         self.polls = 0
+        # 指示の番号は _base+1 から。同じワールドのまま中継プログラムを起動し直すと、アドオンは前の番号まで
+        # 受け取り済みと覚えていて、それ以下の番号を無視する。最初の連絡で、その続きから振るようにする。
+        self._base = 0
         self._log = open(log_path, "a", encoding="utf-8") if log_path else None
 
     def _issue(self, op: str, args: list[str], t: float | None) -> int:
         t = time.monotonic() if t is None else t
         with self._lock:
-            oid = len(self._ops) + 1
+            oid = self._base + len(self._ops) + 1
             self._ops.append({"id": oid, "op": op, "args": args, "issued_t": t,
                               "done_t": None, "ok": None, "vid": None})
             return oid
@@ -277,6 +280,8 @@ class AddonOps:
         t = time.monotonic() if t is None else t
         with self._lock:
             self.polls += 1
+            if self.polls == 1 and ack > 0 and not self._ops:
+                self._base = ack
             self._status = {"vid": vid, "sim": sim, "players": players, "pos": pos, "t": t}
             if self._log and vid >= 0:
                 row = {"t": round(t, 4), "vid": vid, "sim": sim, "players": players}
@@ -292,7 +297,7 @@ class AddonOps:
 
     def get(self, oid: int) -> dict:
         with self._lock:
-            return dict(self._ops[oid - 1])
+            return dict(self._ops[oid - self._base - 1])
 
     def status(self) -> dict:
         with self._lock:
