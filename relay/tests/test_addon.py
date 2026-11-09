@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import sys
 import threading
 import unittest
@@ -159,6 +160,7 @@ class FakeServerApi:
         self.next_id = 100
         self.announces: list[str] = []
         self.spawned_at: list[tuple] = []
+        self.spawned_yaw: list = []
         self.moved_to: list[tuple] = []
         self.player_moves: list[tuple] = []
         self.players = [{"id": 0, "name": "p", "steam_id": "76561198000000000"}]
@@ -197,6 +199,7 @@ class FakeServerApi:
         self.next_id += 1
         self.vehicles[self.next_id] = name
         self.spawned_at.append((m["x"], m["y"], m["z"]))
+        self.spawned_yaw.append(m["yaw"])
         return self.next_id, True, self.lua.table_from({1: self.next_id}), self.next_id + 1000
 
     def _despawn(self, vid):
@@ -216,6 +219,8 @@ class AddonLuaTest(unittest.TestCase):
         g.server = self.api.table()
         g.matrix = self.lua.table_from({
             "translation": lambda x, y, z: self.lua.table_from({"x": x, "y": y, "z": z}),
+            "rotationY": lambda a: self.lua.table_from({"yaw": a}),
+            "multiply": lambda m, r: self.lua.table_from({"x": m["x"], "y": m["y"], "z": m["z"], "yaw": r["yaw"]}),
             "position": lambda m: (m["x"], m["y"], m["z"]),
         })
         self.logs: list[str] = []
@@ -503,6 +508,13 @@ class AddonLuaTest(unittest.TestCase):
         self.assertAlmostEqual(x, 10.0 + 2 * 0.8 - 8 * 0.6)
         self.assertAlmostEqual(y, 3.0)
         self.assertAlmostEqual(z, -5.0 - 2 * 0.6 - 8 * 0.8)
+        self.assertAlmostEqual(self.api.spawned_yaw[0], math.atan2(0.6, 0.8), msg="機体の前（+z）をプレイヤーの向きに")
+
+    def test_spawn_relative_to_the_player_is_not_turned(self):
+        self.tick(3)
+        self.ops.spawn("boat", (0, 3, 15), relative=True)
+        self.tick(6)
+        self.assertIsNone(self.api.spawned_yaw[0])
 
     def test_target_renew_without_target_fails(self):
         self.tick(3)
