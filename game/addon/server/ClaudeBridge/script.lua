@@ -13,6 +13,11 @@ t=0
 waitT=-1
 hold=0
 holdT=0
+-- No ok reply for this long while a vehicle is placed: the relay is gone, so clean up the vehicle ourselves
+ORPHAN=1800
+okT=0
+-- Saved with the world, so a vehicle left behind (game paused or crashed mid-experiment) is cleaned up on load
+g_savedata={vid=-1,gid=-1}
 ack=0
 res=1
 vid=-1
@@ -25,12 +30,22 @@ end
 
 function onCreate(is_world_create)
 	log("onCreate world_create="..tostring(is_world_create))
+	local sv,sg=g_savedata.vid or -1,g_savedata.gid or -1
+	if sv>=0 or sg>=0 then
+		vid,gid=sv,sg
+		server.announce("[Claude]","despawning leftover vehicle id="..sv)
+		despawn()
+	end
 end
 
 function onTick(game_ticks)
 	t=t+1
 	if t%320==1 then
 		log("tick="..t.." seq="..seq.." ack="..ack.." replies="..replyN.." waiting="..tostring(waitT>=0).." hold="..hold.." players="..playerCount())
+	end
+	if vid>=0 and t-okT>ORPHAN then
+		server.announce("[Claude]","no reply from relay, despawning id="..vid)
+		despawn()
 	end
 	if waitT>=0 then
 		if t-waitT<TIMEOUT then return end
@@ -63,6 +78,7 @@ function httpReply(port,request,reply)
 	end
 	hold=0
 	holdT=0
+	okT=t
 	local id,op,rest=string.match(reply,"^ok|(%d+)|([%w_]+)|?(.*)$")
 	id=tonumber(id)
 	if id==nil or id<=ack then return end
@@ -103,6 +119,9 @@ function spawn(a)
 	end
 	vid=v
 	gid=g or -1
+	okT=t
+	g_savedata.vid=vid
+	g_savedata.gid=gid
 	server.announce("[Claude]","spawned "..name.." id="..v)
 	return true
 end
@@ -118,6 +137,8 @@ function despawn()
 	server.announce("[Claude]","despawned id="..vid)
 	vid=-1
 	gid=-1
+	g_savedata.vid=-1
+	g_savedata.gid=-1
 	return ok
 end
 

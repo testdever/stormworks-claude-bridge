@@ -25,10 +25,15 @@ class World:
         self.player = (0.0, 5.0, 0.0)
         self.first_value_delay, self.never_values, self.spawned_t = first_value_delay, never_values, None
         self.moved_to = []
+        self.ghost_from = None  # この時刻から、片付けられずに残った別の機体のマイコンも値を送る
+        self.ghost_seq = 6
 
     def tick(self, t: float) -> None:
         if self.paused_from is not None and t >= self.paused_from:
             return  # ゲームが止まると、アドオンもマイコンも何も送らない
+        if self.ghost_from is not None and t >= self.ghost_from:
+            self.ghost_seq += 1
+            self.rec.add(seq=self.ghost_seq, tick=3000 + self.ghost_seq * 3, values=[0.0] * 32, t=t)
         p = self.ops.pending()
         if p:
             ok = True
@@ -166,6 +171,26 @@ class ExperimentRunnerTest(unittest.TestCase):
         res = w.run(BASIC).result()
         self.assertEqual(res["status"], "stopped")
         self.assertIn("値が届かない", res["reason"])
+
+    def test_values_from_two_vehicles_stop(self):
+        w = World()
+        w.ghost_from = 0.0
+        r = w.run(BASIC)
+        res = r.result()
+        self.assertEqual(res["status"], "stopped")
+        self.assertIn("2台以上のマイコン", res["reason"])
+        self.assertLess(res["stopped_at_s"], 4.0)
+
+    def test_respawn_does_not_look_like_two_vehicles(self):
+        script = {"name": "置き直し", "steps": [
+            {"op": "spawn", "vehicle": "claude_test", "offset": [0, 3, 15]},
+            {"op": "wait", "seconds": 2},
+            {"op": "spawn", "vehicle": "claude_test", "offset": [0, 3, 15]},  # 前の機体を片付けてから置く
+            {"op": "wait", "seconds": 3},
+            {"op": "despawn"},
+        ]}
+        r = World().run(script)
+        self.assertEqual(r.result()["status"], "completed", r.result()["reason"])
 
     def test_bad_script_is_rejected(self):
         with self.assertRaises(ValueError):

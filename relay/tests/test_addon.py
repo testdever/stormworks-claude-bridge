@@ -324,6 +324,52 @@ class AddonLuaTest(unittest.TestCase):
         self.tick(60 * 12)
         self.assertGreater(self.ops.polls, 100, "戻ってから11秒以内に、毎 tick の問い合わせに戻る")
 
+    def test_spawned_vehicle_is_remembered_in_savedata(self):
+        self.tick(3)
+        self.ops.spawn("boat", (0, 0, 0), relative=False)
+        self.tick(6)
+        sd = self.lua.globals().g_savedata
+        self.assertEqual(sd.vid, 101)
+        self.assertEqual(sd.gid, 1101)
+        self.ops.despawn()
+        self.tick(6)
+        self.assertEqual((sd.vid, sd.gid), (-1, -1))
+
+    def test_leftover_vehicle_is_despawned_when_world_loads(self):
+        # ゲームを起動し直すと、スクリプトの変数は空に戻るが、g_savedata はワールドと一緒に保存されて戻る
+        self.api.vehicles[55] = "boat"
+        g = self.lua.globals()
+        g.g_savedata = self.lua.table_from({"vid": 55, "gid": 1055})
+        g.onCreate(False)
+        self.assertEqual(self.api.vehicles, {})
+        self.assertEqual((g.g_savedata.vid, g.g_savedata.gid), (-1, -1))
+        self.assertTrue(any("leftover" in a for a in self.api.announces))
+
+    def test_new_world_has_nothing_to_despawn(self):
+        g = self.lua.globals()
+        g.onCreate(True)
+        self.assertEqual(self.api.announces, [])
+
+    def test_vehicle_is_despawned_when_relay_is_gone(self):
+        self.tick(3)
+        self.ops.spawn("boat", (0, 0, 0), relative=False)
+        self.tick(6)
+        self.assertEqual(len(self.api.vehicles), 1)
+        g = self.lua.globals()
+        for _ in range(60 * 25):   # 中継プログラムなしで25秒。まだ片付けない
+            g.onTick(1)
+        self.assertEqual(len(self.api.vehicles), 1)
+        for _ in range(60 * 10):   # 合わせて35秒
+            g.onTick(1)
+        self.assertEqual(self.api.vehicles, {})
+        self.assertEqual(g.g_savedata.vid, -1)
+
+    def test_vehicle_stays_while_relay_answers(self):
+        self.tick(3)
+        self.ops.spawn("boat", (0, 0, 0), relative=False)
+        self.tick(60 * 40)
+        self.assertEqual(len(self.api.vehicles), 1)
+
     def test_q3_runner_end_to_end(self):
         r = relay.Q3Runner(self.ops, self.rec, vehicle="boat", offset=(0, 3, 15), relative=True,
                            cycles=3, hold=0.2, gap=0.1, timeout=2.0)

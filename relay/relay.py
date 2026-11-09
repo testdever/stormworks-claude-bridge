@@ -569,6 +569,8 @@ class ExperimentRunner:
         self._alarm: str | None = None
         self._stopped_t: float | None = None
         self._cleanup_op: int | None = None
+        # マイコンごとの値の流れ。1台のマイコンの通し番号と tick は増え続けるので、続かない値は別のマイコンから来ている
+        self._streams: list[dict] = []
         self._lock = threading.Lock()
         recorder.add_listener(self._on_values)
 
@@ -596,8 +598,33 @@ class ExperimentRunner:
         return steps
 
     # ---- 見張り ----
+    STREAM_WINDOW = 1.0   # この秒数の間に
+    STREAM_MIN = 10       # それぞれ10件以上
+    STREAM_FRESH = 0.2    # しかも両方がこの秒数以内に値を送っていたら、2台以上が同時に動いている
+
+    def _track_stream(self, t: float, seq: int, tick: int) -> bool:
+        """値をマイコンごとの流れに振り分け、2つ以上の流れが同時に続いていれば True。"""
+        best = None
+        for s in self._streams:
+            if s["seq"] < seq <= s["seq"] + 100 and s["tick"] < tick <= s["tick"] + 6000:
+                if best is None or tick - s["tick"] < tick - best["tick"]:
+                    best = s
+        if best is None:
+            best = {"times": []}
+            self._streams.append(best)
+        best["seq"], best["tick"] = seq, tick
+        best["times"].append(t)
+        for s in self._streams:
+            s["times"] = [x for x in s["times"] if t - x <= self.STREAM_WINDOW]
+        self._streams = [s for s in self._streams if s["times"]]
+        alive = [s for s in self._streams
+                 if len(s["times"]) >= self.STREAM_MIN and t - s["times"][-1] <= self.STREAM_FRESH]
+        return len(alive) >= 2
+
     def _on_values(self, t, seq, tick, values) -> None:
         with self._lock:
+            if self._track_stream(t, seq, tick) and not self._alarm:
+                self._alarm = "2台以上のマイコンから値が届いている（片付けられずに残った機体がある可能性）"
             if self._expected_vid is None:
                 return
             self._last_value_t = t
@@ -676,6 +703,8 @@ class ExperimentRunner:
         if op == "move_player":
             self._op = self.ops.move_player(tuple(s["pos"]), t=now)
         elif op == "spawn":
+            self._expected_vid = None  # アドオンは前の機体を片付けてから置く。置き終わるまで「消えた」と見ない
+            self._spawned_t = None
             name = s.get("vehicle") or self.script.get("vehicle")
             if "pos" in s:
                 self._op = self.ops.spawn(name, tuple(s["pos"]), relative=False, t=now)
