@@ -269,4 +269,60 @@ grade = "inference"
 source = ""
 note = "同じ"
 
+[[cell]]
+option = "A"
+criterion = "M3"
+value = "pass"
+grade = "measured"
+source = "docs/evidence/E-006-physics-sensor-channels.md"
+note = ""
+
+[[cell]]
+option = "B"
+criterion = "M3"
+value = "fail"
+grade = "measured"
+source = "docs/evidence/E-015-q8-position-and-no-ground.md"
+note = ""
+
+[[cell]]
+option = "C"
+criterion = "M3"
+value = "fail"
+grade = "measured"
+source = "docs/evidence/E-015-q8-position-and-no-ground.md"
+note = ""
+
+[[cell]]
+option = "J"
+criterion = "M3"
+value = "pass"
+grade = "inference"
+source = ""
+note = "接続したプレイヤーのまわりの地図は読み込まれるはず。アドオンの server.setPlayerPos でプレイヤーを実験場所のそばに移せる。確かめていない"
+
+[[cell]]
+option = "E"
+criterion = "M3"
+value = "pass"
+grade = "inference"
+source = ""
+note = "A と同じゲーム本体なので、プレイヤーのまわりの地面と海は読み込まれる"
+
+[[cell]]
+option = "D"
+criterion = "M3"
+value = "pass"
+grade = "inference"
+source = ""
+note = "A と同じゲーム本体なので、プレイヤーのまわりの地面と海は読み込まれる"
+
+[[cell]]
+option = "F"
+criterion = "M3"
+value = "pass"
+grade = "inference"
+source = ""
+note = "本人がゲームの中にいるので地面と海は読み込まれる"
+
 +++
