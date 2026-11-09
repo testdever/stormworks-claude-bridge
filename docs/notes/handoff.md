@@ -29,15 +29,21 @@ Claude は手順書（`experiments/*.json`）を書き、`python relay/relay.py 
 
 誰も接続していない専用サーバーは、地面と海が読み込まれず機体が落ち続けるので外した（`docs/notes/dedicated-server.md`）。
 
-## 次にやること（2026-11-09 18:30 時点）
+## 次にやること（2026-11-09 20:10 時点）
 
-済み：Q6・Q7・Q9 合格。D-003 の [trial] を片付けた。送り直しの間隔を伸ばす Lua で、中継プログラムを止めたままゲームを終了しても落ちなかった（1回）。
+済み：Q6・Q7・Q9 合格。D-003 の [trial] を片付けた。回転に関わる物理センサーの出力（E-019）。送り直しの間隔を伸ばす Lua で、
+中継プログラムを止めたままゲームを終了しても落ちなかった（1回）。残った機体・標的の片付け、`?claude stop`。
+本人の FCS（射撃管制マイコン、test calc）の試験の自動化：2 km の V-07 を手で撃つ形で回した（E-020、合格）。
 
-1. **物理センサーの出力の順番：** 本人が `claude_test` の速度ピボットに電源をつないで保存し直す。開けた陸の上に立ってもらい、
-   `python stormworks-claude-bridge/relay/relay.py --run stormworks-claude-bridge/experiments/q6_no_move.json`（デスクトップの relay フォルダで）。
-   回す前・回している間・止めたあとの値から、回転に関わる出力を読む（Q1 の読み取りは E-006）。
-2. **Q10：** 本人が実際にしたい計測実験の規模で1回回し、重さを感じたかを聞く。合格なら D-004 の [trial] を片付ける。
+1. **FCS V-07 を手放しで：** README の「FCS V-07（手放し）」。本人が test calc のつなぎのマイコンに `game/fcs_bridge.lua` を貼り、
+   射撃許可の線（Composite Read on/off ch1 → allow fire）をつなぎ、新しいワールドを作る。`experiments/fcs_v07_auto.json` を流す。
+   その間に本人がほかの作業をすれば、Q10（重く感じないか）も確かめられる。合格なら D-004 の [trial] を片付ける。
+2. 前の会話の残りの FCS の試験（V-08 動く目標、V-09 揺れる船、V-10 初弾までの時間、V-15 FPS、V-16〜V-18）を手順書にする。
+   標的を動かすのに setVehiclePos は使えない（動かすたびに読み込み直す）。動く標的には自分で進む機体が要る。
 3. 落ちる件は、新しい Lua でもう何回か様子を見る。
+
+FCS の一式（Lua・設計書・試走の Lua）は、本人の PC の `Downloads\stormworks-fcs-2026-11-09.zip`（リポジトリには入れていない）。
+test calc の FCS は目標を ch1 = X、ch2 = Z、ch3 = Y で読む（ヘビレンジのアドオンに合わせたもの。普段は X・Y・Z）。
 
 本人の PC での動かし方：デスクトップの `relay\relay.py` は古いので使わない。リポジトリ（`Desktop\relay\stormworks-claude-bridge`）の
 `relay/relay.py` と `experiments/` を、デスクトップの `relay` フォルダから動かす（記録は `relay\logs\` に残る）。
