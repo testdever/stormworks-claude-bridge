@@ -122,8 +122,9 @@ class BacklogTest(unittest.TestCase):
         threading.Thread(target=server.serve_forever, daemon=True).start()
         try:
             v = QueuedVehicle(port)
-            v.tick(60 * 50)            # 中継プログラムなしで50秒。待ちきれず送り直した要求が溜まる
-            self.assertGreaterEqual(len(v.queue), 45)
+            v.tick(60 * 50)            # 中継プログラムなしで50秒。返事がないので、送り直しの間隔を伸ばしていく
+            self.assertGreaterEqual(len(v.queue), 3)
+            self.assertLessEqual(len(v.queue), 10)  # 直す前は約50件溜まっていた
             v.relay_up = True
             v.tick(120)                # 溜まった分が流れ切るのに十分な時間
             self.assertLessEqual(len(v.queue), 1)  # 最新の1件だけが送られ待ち
@@ -139,6 +140,51 @@ class BacklogTest(unittest.TestCase):
         finally:
             server.shutdown()
             server.server_close()
+
+
+    def test_relay_down_for_two_minutes_sends_few_requests(self):
+        rec, com = relay.Recorder(expected_values=32), relay.Commander()
+        server = relay.make_server("127.0.0.1", 0, rec, com)
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            v = QueuedVehicle(port)
+            v.tick(60 * 120)
+            self.assertLessEqual(len(v.sent), 20)  # 直す前は1秒に1件、約120件
+            v.relay_up = True
+            for n in range(1, 60 * 12):
+                v.tick(1)
+                if rec.summary()["received"] > 0:
+                    break
+            self.assertLess(n, 60 * 11, "中継プログラムが戻れば11秒以内に値が届く")
+            before = len(v.sent)
+            v.tick(60)
+            self.assertGreaterEqual(len(v.sent) - before, 15, "戻ったあとは1秒に15件以上に戻る")
+        finally:
+            server.shutdown()
+            server.server_close()
+
+
+@unittest.skipIf(lupa is None, "lupa がない")
+class ErrorBackoffTest(unittest.TestCase):
+    def test_error_reply_waits_before_resending(self):
+        v = FakeVehicle(9, reply=False, script=SCRIPT)
+        v.tick(1)
+        self.assertEqual(len(v.sent), 1)
+        v.lua.globals().httpReply(9, v.sent[-1], "connect(): Connection refused")
+        v.tick(30)
+        self.assertEqual(len(v.sent), 1, "エラーの返事のあと、すぐには送り直さない")
+        v.tick(60)
+        self.assertEqual(len(v.sent), 2)
+
+    def test_ok_reply_resets_the_wait(self):
+        v = FakeVehicle(9, reply=False, script=SCRIPT)
+        g = v.lua.globals()
+        v.tick(60 * 30)            # 返事なしで30秒。間隔が伸びている
+        n = len(v.sent)
+        g.httpReply(9, v.sent[-1], "ok")
+        v.tick(2)
+        self.assertEqual(len(v.sent), n + 1, "正常な返事のあとは、すぐ次を送る")
 
 
 if __name__ == "__main__":

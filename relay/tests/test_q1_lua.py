@@ -15,10 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import relay  # noqa: E402
 
-try:
-    import lupa  # type: ignore
-except ImportError:  # pragma: no cover
-    lupa = None
+from luart import lupa  # noqa: E402  動く版の Lua を選ぶ（なければ None）
 
 SCRIPT = Path(__file__).resolve().parents[2] / "game" / "q1_send_values.lua"
 

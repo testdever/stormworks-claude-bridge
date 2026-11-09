@@ -5,10 +5,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-try:
-    import lupa  # type: ignore
-except ImportError:  # pragma: no cover
-    lupa = None
+from luart import lupa  # noqa: E402  動く版の Lua を選ぶ（なければ None）
 
 SCRIPT = Path(__file__).resolve().parents[2] / "game" / "addon" / "ClaudeProbe" / "script.lua"
 

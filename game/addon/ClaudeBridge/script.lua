@@ -4,11 +4,15 @@
 --   or "ok|<id>|lift|<dy>" (teleport the vehicle dy metres up, to check physics keeps running)
 --   or "ok|<id>|move_player|<x>|<y>|<z>" (move the first real player there, so the ground and sea load)
 --   rel=1: x,y,z are offsets from the first player's position
+-- No reply: wait longer before each resend (1s, 2s, 4s .. 10s) so the game does not pile up requests
 PORT=8765
 TIMEOUT=60
+MAXHOLD=600
 seq=0
 t=0
 waitT=-1
+hold=0
+holdT=0
 ack=0
 res=1
 vid=-1
@@ -26,12 +30,22 @@ end
 function onTick(game_ticks)
 	t=t+1
 	if t%320==1 then
-		log("tick="..t.." seq="..seq.." ack="..ack.." replies="..replyN.." waiting="..tostring(waitT>=0).." players="..playerCount())
+		log("tick="..t.." seq="..seq.." ack="..ack.." replies="..replyN.." waiting="..tostring(waitT>=0).." hold="..hold.." players="..playerCount())
 	end
-	if waitT>=0 and t-waitT<TIMEOUT then return end
+	if waitT>=0 then
+		if t-waitT<TIMEOUT then return end
+		waitT=-1
+		backoff()
+	end
+	if t<holdT then return end
 	seq=seq+1
 	waitT=t
 	server.httpGet(PORT,"/addon?s="..seq.."&a="..ack.."&r="..res.."&vid="..vid.."&sim="..simState().."&np="..playerCount()..posQuery())
+end
+
+function backoff()
+	hold=math.min(math.max(hold*2,TIMEOUT),MAXHOLD)
+	holdT=t+hold
 end
 
 function httpReply(port,request,reply)
@@ -43,6 +57,12 @@ function httpReply(port,request,reply)
 	local s=tonumber(string.match(request,"s=(%d+)"))
 	if s and s~=seq then return end
 	waitT=-1
+	if string.sub(reply,1,2)~="ok" then
+		backoff()
+		return
+	end
+	hold=0
+	holdT=0
 	local id,op,rest=string.match(reply,"^ok|(%d+)|([%w_]+)|?(.*)$")
 	id=tonumber(id)
 	if id==nil or id<=ack then return end

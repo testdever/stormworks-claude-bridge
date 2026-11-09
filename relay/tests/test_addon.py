@@ -14,10 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import relay  # noqa: E402
 
-try:
-    import lupa  # type: ignore
-except ImportError:  # pragma: no cover
-    lupa = None
+from luart import lupa  # noqa: E402  動く版の Lua を選ぶ（なければ None）
 
 ADDON = Path(__file__).resolve().parents[2] / "game" / "addon" / "ClaudeBridge" / "script.lua"
 
@@ -290,6 +287,29 @@ class AddonLuaTest(unittest.TestCase):
         a = self.ops.spawn("missing", (0, 0, 0), relative=False)
         self.tick(6)
         self.assertFalse(self.ops.get(a)["ok"])
+
+    def test_relay_down_sends_few_polls(self):
+        g = self.lua.globals()
+        for _ in range(60 * 120):  # 中継プログラムなしで2分。要求は送られず溜まる
+            g.onTick(1)
+        self.assertLessEqual(len(self.api.queue), 20)  # 直す前は1秒に1件、約120件
+
+    def test_error_reply_waits_before_resending(self):
+        g = self.lua.globals()
+        g.onTick(1)
+        req = self.api.queue.pop()
+        g.httpReply(self.port, req, "connect(): Connection refused")
+        for _ in range(30):
+            g.onTick(1)
+        self.assertEqual(self.api.queue, [], "エラーの返事のあと、すぐには送り直さない")
+
+    def test_polling_resumes_after_relay_comes_back(self):
+        g = self.lua.globals()
+        for _ in range(60 * 60):
+            g.onTick(1)
+        self.api.queue.clear()     # ゲームが送れなかった要求は消えたとする
+        self.tick(60 * 12)
+        self.assertGreater(self.ops.polls, 100, "戻ってから11秒以内に、毎 tick の問い合わせに戻る")
 
     def test_q3_runner_end_to_end(self):
         r = relay.Q3Runner(self.ops, self.rec, vehicle="boat", offset=(0, 3, 15), relative=True,

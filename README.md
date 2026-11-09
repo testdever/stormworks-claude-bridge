@@ -205,7 +205,7 @@ Claude が書いた手順書（`experiments/*.json`）を中継プログラム�
 1. `relay/relay.py` と `game/addon/ClaudeBridge/script.lua` を、それぞれの置き場所（上の表）に貼り替える。
    `experiments` フォルダの4つの手順書を、`relay.py` と同じフォルダの `experiments\` に置く。
 2. ゲームで `claude_test` をワークベンチに出し、マイコンの Lua ブロックを `game/q2_values_and_commands.lua` の新しい中身に貼り替えて、
-   同じ名前（`claude_test`）で上書き保存する（試験用に壊れた値を送る機能が増えた）。
+   同じ名前（`claude_test`）で上書き保存する（試験用に壊れた値を送る機能と、返事がない間は送り直しの間隔を伸ばす作りが増えた）。
 3. **ウィンドウ表示**の Stormworks で、「Claude Bridge」だけを有効にした新しい1人用ワールドを作って入る。最初の島は既定のまま。
 
 ### 手順
@@ -217,7 +217,8 @@ Claude が書いた手順書（`experiments/*.json`）を中継プログラム�
    python relay.py --run experiments\q6_physics_sensor_order.json
    ```
 
-   プレイヤーが実験場所へ移り、機体が出て、モーターが回って止まり、片付けられる。
+   プレイヤーが実験場所の近く（機体の 10m 手前）へ移り、Q1 で機体が地面に乗っていた場所（-260.9, 7, -18949）に機体が出て、
+   モーターが回って止まり、片付けられる。機体が落ち続けたら（置いた場所に足場がない）、見張りが止める。
    **作業中に、マウスやキーボードを取られたか、ゲームのウィンドウが前に出てきたか、音が気になったか**を覚えておく（Q9）。
 2. **Q7：** 次の3つを順に実行する。どれも途中で止まるはず。
    - `python relay.py --run experiments\q7_vanish.json`（アドオンが機体を消す）
@@ -236,3 +237,10 @@ python -m unittest discover -s relay/tests
 ```
 
 マイコンの Lua をゲームの代わりの環境で試すテストは、`pip install lupa` を入れたときだけ動く。
+Windows のスマート アプリ コントロールが lupa の一部（Lua 5.3・5.4）を止めることがあるので、テストは動く版（5.1 など）を自動で選ぶ（`relay/tests/luart.py`）。
+
+## 返事がないときの送り直し
+
+アドオンとマイコンは、中継プログラムから返事がない（止まっている）間、送り直しの間隔を 1秒 → 2秒 → 4秒 … と伸ばし、最長10秒にする。
+返事が来たら、すぐ元の速さに戻る。間隔を伸ばさないと、ゲームの中に要求が溜まり、ワールドを抜けるときにゲームが落ちる見込みが高い
+（`docs/notes/experiment-runs.md`）。古い Lua の機体やワールドを使うときは、ゲームを終了する前に `python relay/relay.py --seconds 0` を動かしておく。
