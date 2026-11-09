@@ -231,3 +231,12 @@
 - これまで：撃たなかったのは1回目（本人が出した test calc）と5回目（手順書が出した）。撃ったのは2・3・4回目。2回目は本人が出し直したあと。
 - 推論（確かめていない）：FCS の3×3マイコンで「debug」と「allow fire」の端子が同じマスに重なっているので、機体を出すたびに、
   つなぎのマイコンからの線がどちらの端子につながるかが変わっている。
+
+## 2026-11-09 22:07 FCS V-07 手放し（6回目）：撃たなかった、Loaded がオフ
+
+- 記録：`docs/evidence/data/run-20261109-220741*`。5回目と同じ保存のまま、手順書が test calc を出し直した。1 km の1発目で、20 秒撃たずに止まった。
+- 本人（見ていた）：Loaded が false だった。→ 砲に弾が込められていなかった。
+- 実測（ゲームの部品の定義 `rom/data/definitions`）：gun_l の端子は Trigger（入力）・Loaded（出力）・Open Breech（入力）・Fuse Timer。
+  gun_belt_loader_l は Feed（入力）・Contains Ammo（出力）・Electric（電気の入力）。test calc では、砲の Loaded → 立ち上がりで1回出すマイコン → NOT → 砲の Open Breech、
+  FCS の fire → Trigger。給弾機の端子は、どれもつながっていない。
+- 推論：撃つ回と撃たない回の違いは、出したときに給弾機から弾が込められるかどうか。まだ確かめていない。
