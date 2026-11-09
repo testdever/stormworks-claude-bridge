@@ -510,6 +510,26 @@ class AddonLuaTest(unittest.TestCase):
         self.assertAlmostEqual(z, -5.0 - 2 * 0.6 - 8 * 0.8)
         self.assertAlmostEqual(self.api.spawned_yaw[0], math.atan2(0.6, 0.8), msg="機体の前（+z）をプレイヤーの向きに")
 
+    def test_spawn_at_a_fixed_place_and_heading(self):
+        self.tick(3)
+        a = self.ops.spawn("test calc", (100, 8, -200), relative=False, yaw_deg=90)
+        self.tick(6)
+        self.assertTrue(self.ops.get(a)["ok"])
+        self.assertEqual(self.api.spawned_at, [(100.0, 8.0, -200.0)])
+        self.assertAlmostEqual(self.api.spawned_yaw[0], math.pi / 2)
+        with self.assertRaises(ValueError):
+            self.ops.spawn("test calc", (0, 0, 0), relative=True, yaw_deg=90)
+
+    def test_target_from_a_fixed_place_and_direction(self):
+        self.tick(3)
+        a = self.ops.target("claude_target", 1000, 0, base=(500.0, -300.0), direction=(0.0, -2.0))
+        self.tick(6)
+        self.assertTrue(self.ops.get(a)["ok"])
+        self.assertEqual(self.api.spawned_at, [(500.0, 0.0, -1300.0)])
+        b = self.ops.target("claude_target", 2000, 0, same_direction=True)
+        self.tick(6)
+        self.assertEqual(self.api.spawned_at[-1], (500.0, 0.0, -2300.0))
+
     def test_spawn_relative_to_the_player_is_not_turned(self):
         self.tick(3)
         self.ops.spawn("boat", (0, 3, 15), relative=True)

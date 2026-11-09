@@ -2,12 +2,14 @@
 -- Polls the relay at /addon and reports the result of the last command.
 -- Reply from relay: "ok" or "ok|<id>|spawn|<save_name>|<x>|<y>|<z>|<rel>" or "ok|<id>|despawn"
 --   (rel: 0 = world position, 1 = offset from the player, 2 = [right, up, forward] of where the player looks;
---   with 2 the vehicle is also turned so that its front (+z in the editor) points where the player looks)
+--   with 2 the vehicle is also turned so that its front (+z in the editor) points where the player looks;
+--   3 = world position turned by <yaw> radians: "ok|<id>|spawn|<save_name>|<x>|<y>|<z>|3|<yaw>")
 --   or "ok|<id>|lift|<dy>" (teleport the vehicle dy metres up, to check physics keeps running)
 --   or "ok|<id>|move_player|<x>|<y>|<z>" (move the first real player there, so the ground and sea load)
 --   rel=1: x,y,z are offsets from the first player's position
 --   or "ok|<id>|target|<save_name>|<distance>|<y>|<same>" (place a target <distance> m ahead of where the player looks,
 --   at height y; same=1: from the same place and in the same direction as the previous target)
+--   or "ok|<id>|target|<save_name>|<distance>|<y>|0|<bx>|<bz>|<dx>|<dz>" (from world point (bx, bz) in direction (dx, dz))
 --   or "ok|<id>|target_despawn" or "ok|<id>|weather|<fog>|<rain>|<wind>" (0-1; turns the override_weather setting on,
 --   checks it every WEATHER_EVERY ticks with server.getWeather and sets it again only when it differs:
 --   a change right after loading the world did not always take)
@@ -200,7 +202,12 @@ function run(op,a)
 	elseif op=="move_player" then
 		return movePlayer(tonumber(a[1]),tonumber(a[2]),tonumber(a[3]))
 	elseif op=="target" then
-		return spawnTarget(a[1],tonumber(a[2]),tonumber(a[3]),a[4]=="1")
+		local base=nil
+		if a[8] then
+			base={tonumber(a[5]),tonumber(a[6]),tonumber(a[7]),tonumber(a[8])}
+			if base[1]==nil or base[2]==nil or base[3]==nil or base[4]==nil then return false end
+		end
+		return spawnTarget(a[1],tonumber(a[2]),tonumber(a[3]),a[4]=="1",base)
 	elseif op=="target_despawn" then
 		return despawnTarget()
 	elseif op=="target_reset" then
@@ -229,6 +236,10 @@ function spawn(a)
 	local x,y,z=tonumber(a[2]),tonumber(a[3]),tonumber(a[4])
 	if name==nil or x==nil or y==nil or z==nil then return false end
 	local yaw=nil
+	if a[5]=="3" then
+		yaw=tonumber(a[6])
+		if yaw==nil then return false end
+	end
 	if a[5]=="1" or a[5]=="2" then
 		local p=firstPlayer()
 		if p==nil then return false end
@@ -278,9 +289,13 @@ function despawn(quiet)
 end
 
 -- a target placed ahead of where the player is looking (horizontal direction only), at world height y
-function spawnTarget(name,dist,y,same)
+function spawnTarget(name,dist,y,same,base)
 	if name==nil or dist==nil or y==nil then return false end
-	if not (same and tbase) then
+	if base then
+		local n=math.sqrt(base[3]*base[3]+base[4]*base[4])
+		if n<1e-6 then return false end
+		tbase={base[1],base[2],base[3]/n,base[4]/n}
+	elseif not (same and tbase) then
 		local p=firstPlayer()
 		if p==nil then return false end
 		local lx,_,lz,okL=server.getPlayerLookDirection(p)

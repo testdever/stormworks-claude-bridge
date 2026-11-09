@@ -345,12 +345,17 @@ class AddonOps:
             return oid
 
     def spawn(self, name: str, pos: tuple[float, float, float], relative: bool, t: float | None = None,
-              look: bool = False) -> int:
-        """relative：プレイヤーの位置からの差（世界の向き）。look：プレイヤーの向きで [右, 上, 前] の差。"""
+              look: bool = False, yaw_deg: float | None = None) -> int:
+        """relative：プレイヤーの位置からの差（世界の向き）。look：プレイヤーの向きで [右, 上, 前] の差。
+        yaw_deg：世界の位置 pos に、前（+z）を方位 yaw_deg（+z から +x へ）に回して置く。"""
         if not name or any(c in name for c in "|\r\n"):
             raise ValueError("機体の名前が空か、使えない文字（| や改行）を含む")
         mode = "2" if look else ("1" if relative else "0")
         args = [name, *(format_value(float(v)) for v in pos), mode]
+        if yaw_deg is not None:
+            if relative or look:
+                raise ValueError("yaw_deg は世界の位置（pos）で置くときだけ")
+            args = [name, *(format_value(float(v)) for v in pos), "3", format_value(math.radians(float(yaw_deg)))]
         return self._issue("spawn", args, t)
 
     def despawn(self, t: float | None = None) -> int:
@@ -360,13 +365,19 @@ class AddonOps:
         """プレイヤー（ゲーム本体の自分）を pos へ移す。まわりの地面と海が読み込まれる。"""
         return self._issue("move_player", [format_value(float(v)) for v in pos], t)
 
-    def target(self, name: str, distance: float, y: float, same_direction: bool = False, t: float | None = None) -> int:
+    def target(self, name: str, distance: float, y: float, same_direction: bool = False, t: float | None = None,
+               base: tuple[float, float] | None = None, direction: tuple[float, float] | None = None) -> int:
         """プレイヤーが向いている方向（水平）の distance m 先、高さ y に標的を置く。
-        same_direction なら、前の標的と同じ場所から同じ方向に置く（その間にプレイヤーが向きを変えてもよい）。"""
+        same_direction なら、前の標的と同じ場所から同じ方向に置く（その間にプレイヤーが向きを変えてもよい）。
+        base（世界の x, z）と direction（x, z）を渡すと、プレイヤーによらずその点からその方向に置く。"""
         if not name or any(c in name for c in "|\r\n"):
             raise ValueError("標的の名前が空か、使えない文字（| や改行）を含む")
-        return self._issue("target", [name, format_value(float(distance)), format_value(float(y)),
-                                      "1" if same_direction else "0"], t)
+        args = [name, format_value(float(distance)), format_value(float(y)), "1" if same_direction else "0"]
+        if base is not None or direction is not None:
+            if base is None or direction is None or len(base) != 2 or len(direction) != 2:
+                raise ValueError("標的の base と direction は、どちらも [x, z]")
+            args += [format_value(float(v)) for v in (*base, *direction)]
+        return self._issue("target", args, t)
 
     def target_reset(self, t: float | None = None) -> int:
         """標的を、置いたときの位置と向きに戻す（機体は読み込み直される）。"""
@@ -992,14 +1003,15 @@ class ExperimentRunner:
             self._spawned_t = None
             name = s.get("vehicle") or self.script.get("vehicle")
             if "pos" in s:
-                self._op = self.ops.spawn(name, tuple(s["pos"]), relative=False, t=now)
+                self._op = self.ops.spawn(name, tuple(s["pos"]), relative=False, t=now, yaw_deg=s.get("yaw_deg"))
             elif "look_offset" in s:
                 self._op = self.ops.spawn(name, tuple(s["look_offset"]), relative=True, look=True, t=now)
             else:
                 self._op = self.ops.spawn(name, tuple(s.get("offset", [0, 3, 15])), relative=True, t=now)
         elif op == "target":
             self._op = self.ops.target(s["vehicle"], float(s["distance"]), float(s["y"]),
-                                       same_direction=bool(s.get("same_direction")), t=now)
+                                       same_direction=bool(s.get("same_direction")), t=now,
+                                       base=s.get("from"), direction=s.get("dir"))
         elif op == "target_despawn":
             self._safe_off(now)
             self._op = self.ops.target_despawn(t=now)

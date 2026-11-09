@@ -1,0 +1,179 @@
+{
+  "name": "FCS V-07（手放し・場所を固定：保存 claude_fcs）：1 km・2 km で 10 発ずつ",
+  "note": "保存 claude_fcs（seed が同じなら同じ地形）の、8回目（2026-11-09 22:26）と同じ場所と向きで流す。本人は保存を読み込むだけでよく、どちらを向いていてもよい（プレイヤーは保存した場所の近くにいること：地形と海が読み込まれるため）。test calc は世界の位置に、前（+z）を方位 177.8°（海の方向）に向けて出す。標的は基準点 [12811.596, -13049.853] から方向 [0.039015, -0.999239] に置く。ほかは fcs_v07_auto.json と同じ。",
+  "steps": [
+    {
+      "op": "setting",
+      "name": "vehicle_damage",
+      "on": true,
+      "label": "機体が傷つくようにする（当たりを数えるため）"
+    },
+    {
+      "op": "setting",
+      "name": "infinite_batteries",
+      "on": true,
+      "label": "電気を無限にする"
+    },
+    {
+      "op": "setting",
+      "name": "infinite_ammo",
+      "on": true,
+      "label": "弾を無限にする（test calc の給弾は弾が無限のときだけ動く）"
+    },
+    {
+      "op": "weather",
+      "fog": 0,
+      "rain": 0,
+      "wind": 0,
+      "label": "天気を穏やかにする（天気の上書きをオンにして、霧・雨・風を 0）"
+    },
+    {
+      "op": "spawn",
+      "vehicle": "test calc",
+      "label": "test calc を決まった場所に、海の方向へ向けて出す",
+      "pos": [
+        12801.41,
+        7.44,
+        -13045.247
+      ],
+      "yaw_deg": 177.76
+    },
+    {
+      "op": "wait",
+      "seconds": 20,
+      "label": "test calc が着地して固定され、FCS が動き出し、波が収まるのを待つ"
+    },
+    {
+      "op": "target",
+      "vehicle": "claude_target",
+      "distance": 1000,
+      "y": 0,
+      "label": "決まった方向の 1 km 先に標的を置く",
+      "from": [
+        12811.596,
+        -13049.853
+      ],
+      "dir": [
+        0.039015,
+        -0.999239
+      ]
+    },
+    {
+      "op": "aim_target",
+      "channels": [
+        1,
+        3,
+        2,
+        4
+      ],
+      "label": "標的の座標を FCS に渡し続ける（ch1 = X、ch2 = Z、ch3 = Y）"
+    },
+    {
+      "op": "wait",
+      "seconds": 8,
+      "label": "砲塔が向くのを待つ"
+    },
+    {
+      "op": "repeat",
+      "times": 10,
+      "steps": [
+        {
+          "op": "target_renew",
+          "label": "新しい標的に置き直す（回転・速さ・傷なし）"
+        },
+        {
+          "op": "wait",
+          "seconds": 1.0,
+          "label": "置き直した標的が着水するのを待つ"
+        },
+        {
+          "op": "fire",
+          "shots": 1,
+          "timeout_s": 20,
+          "label": "標的が落ち着いたら1発撃つ",
+          "steady": {
+            "within_m": 0.3,
+            "for_s": 1.0
+          }
+        },
+        {
+          "op": "wait",
+          "seconds": 3.0,
+          "label": "着弾を待つ"
+        }
+      ]
+    },
+    {
+      "op": "target_despawn",
+      "label": "1 km の標的を片付ける"
+    },
+    {
+      "op": "target",
+      "vehicle": "claude_target",
+      "distance": 2000,
+      "y": 0,
+      "label": "決まった方向の 2 km 先に標的を置く",
+      "from": [
+        12811.596,
+        -13049.853
+      ],
+      "dir": [
+        0.039015,
+        -0.999239
+      ]
+    },
+    {
+      "op": "aim_target",
+      "channels": [
+        1,
+        3,
+        2,
+        4
+      ],
+      "label": "標的の座標を FCS に渡し続ける"
+    },
+    {
+      "op": "wait",
+      "seconds": 8,
+      "label": "砲塔が向くのを待つ"
+    },
+    {
+      "op": "repeat",
+      "times": 10,
+      "steps": [
+        {
+          "op": "target_renew",
+          "label": "新しい標的に置き直す（回転・速さ・傷なし）"
+        },
+        {
+          "op": "wait",
+          "seconds": 1.0,
+          "label": "置き直した標的が着水するのを待つ"
+        },
+        {
+          "op": "fire",
+          "shots": 1,
+          "timeout_s": 20,
+          "label": "標的が落ち着いたら1発撃つ",
+          "steady": {
+            "within_m": 0.3,
+            "for_s": 1.0
+          }
+        },
+        {
+          "op": "wait",
+          "seconds": 4.5,
+          "label": "着弾を待つ"
+        }
+      ]
+    },
+    {
+      "op": "target_despawn",
+      "label": "2 km の標的を片付ける"
+    },
+    {
+      "op": "despawn",
+      "label": "test calc を片付ける"
+    }
+  ]
+}
