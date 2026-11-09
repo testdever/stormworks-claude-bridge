@@ -87,6 +87,18 @@ class LuaQ2Test(unittest.TestCase):
         self.assertIn("v=nan,nan", last)
         self.assertGreater(self.rec.summary()["received"], 0)
 
+    def test_on_off_inputs_are_sent_as_a_bitmask(self):
+        self.v.tick(4)
+        self.assertIn("&b=2147483665&", self.v.sent[-1])  # 1ch・5ch・32ch がオン
+        self.assertEqual(relay.parse_bools(self.v.sent[-1])[:6], [True, False, False, False, True, False])
+
+    def test_large_world_coordinates_keep_millimetres(self):
+        self.v.tick(4)
+        self.com.issue({1: -2179.187, 3: -24052.034, 4: 1})
+        self.v.tick(6)
+        self.assertAlmostEqual(self.v.outputs[3], -24052.034, places=3)
+        self.assertEqual(self.v.outputs[4], 1)
+
     def test_script_is_short_enough(self):
         self.assertLess(len(SCRIPT.read_text(encoding="utf-8")), 4096)
 

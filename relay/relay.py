@@ -45,7 +45,8 @@ RESEND_TICKS = 60  # マイコンの Lua が返事を待つ tick 数。これ以
 
 
 def format_value(x: float) -> str:
-    return f"{x:.7g}"
+    # 9桁：ワールドの座標（-24052.37 など）を 1 mm の桁まで渡す。マイコンの数値（32ビット）より細かい
+    return f"{x:.9g}"
 
 
 def parse_values(path: str) -> tuple[int, int, list[float], int | None]:
@@ -60,6 +61,15 @@ def parse_values(path: str) -> tuple[int, int, list[float], int | None]:
     ack = int(q["a"][0]) if "a" in q else None
     vals = [float(x) for x in raw.split(",")] if raw else []
     return seq, tick, vals, ack
+
+
+def parse_bools(path: str) -> list[bool] | None:
+    """マイコンが送るオン/オフの値 b=<32ビットの数>（1ch が最下位ビット）。なければ None。"""
+    q = parse_qs(urlsplit(path).query)
+    if "b" not in q:
+        return None
+    mask = int(float(q["b"][0]))
+    return [bool(mask >> i & 1) for i in range(32)]
 
 
 def parse_q1(path: str) -> tuple[int, int, list[float]]:
@@ -103,7 +113,8 @@ class Recorder:
         """値が届くたびに fn(t, seq, tick, values) を呼ぶ。"""
         self._listeners.append(fn)
 
-    def add(self, seq: int, tick: int, values: list[float], t: float | None = None, ack: int | None = None) -> None:
+    def add(self, seq: int, tick: int, values: list[float], t: float | None = None, ack: int | None = None,
+            bools: list[bool] | None = None) -> None:
         t = time.monotonic() if t is None else t
         with self._lock:
             self._times.append(t)
@@ -118,6 +129,8 @@ class Recorder:
                 if ack is not None:
                     row["a"] = ack
                 row["v"] = [v if math.isfinite(v) else str(v) for v in values]
+                if bools is not None:
+                    row["b"] = [i + 1 for i, x in enumerate(bools) if x]
                 self._log.write(json.dumps(row, ensure_ascii=False) + "\n")
         for fn in self._listeners:
             fn(t, seq, tick, values)
@@ -593,7 +606,10 @@ class ExperimentRunner:
       addon_timeout_s（既定3）、values_grace_s（置いてから最初の値を待つ秒数。既定15）、stop_if:[{ch, lt|gt, reason}]
     """
 
-    OPS = {"move_player", "spawn", "wait", "set", "despawn", "inject", "target", "target_despawn", "weather"}
+    OPS = {"move_player", "spawn", "wait", "set", "despawn", "inject", "target", "target_despawn", "weather",
+           "aim_target"}
+    FOLLOW_INTERVAL = 0.5   # 標的の座標を渡し直す間隔の下限（秒）
+    FOLLOW_MOVE = 0.02      # これより動いたら渡し直す（m）
     STEP_TIMEOUT = 10.0
     FAIL_TEXT = {"move_player": "プレイヤーを移せなかった", "spawn": "機体を置けなかった",
                  "despawn": "機体を片付けられなかった", "target": "標的を置けなかった",
@@ -626,6 +642,10 @@ class ExperimentRunner:
         self._alarm: str | None = None
         self._stopped_t: float | None = None
         self._cleanup_op: int | None = None
+        # aim_target のあと、標的の座標を出力 1〜3（と 4 = 1：有効）でマイコンに渡し続ける
+        self._follow: list[int] | None = None
+        self._follow_last: tuple | None = None
+        self._follow_t = -1e9
         # マイコンごとの値の流れ。1台のマイコンの通し番号と tick は増え続けるので、続かない値は別のマイコンから来ている
         self._streams: list[dict] = []
         self._lock = threading.Lock()
@@ -654,6 +674,8 @@ class ExperimentRunner:
                 raise ValueError(f"{i}番目の target には vehicle・distance（m）・y（高さ）が要る")
             if op == "weather" and not all(k in s for k in ("fog", "rain", "wind")):
                 raise ValueError(f"{i}番目の weather には fog・rain・wind（0〜1）が要る")
+            if op == "aim_target" and len(s.get("channels", [1, 2, 3, 4])) != 4:
+                raise ValueError(f"{i}番目の aim_target の channels は [X, Y, Z, 有効] の4つ")
             if op == "inject" and s.get("kind") not in ("despawn", "nan"):
                 raise ValueError(f"{i}番目の inject の kind は despawn か nan")
         return steps
@@ -745,6 +767,7 @@ class ExperimentRunner:
         if alarm:
             self._stop(now, alarm)
             return
+        self._feed_target(now)
         self._advance(now)
 
     def _next(self, now: float) -> None:
@@ -753,6 +776,9 @@ class ExperimentRunner:
         self._i += 1
         if self._i >= len(self.steps):
             self.status = "completed"
+            if self._follow:
+                self.commander.issue({self._follow[3]: 0.0}, t=now)
+                self._follow = None
             self.log.append("手順書を最後まで流しました")
             self.done = True
             return
@@ -774,7 +800,14 @@ class ExperimentRunner:
         elif op == "target":
             self._op = self.ops.target(s["vehicle"], float(s["distance"]), float(s["y"]), t=now)
         elif op == "target_despawn":
+            if self._follow:
+                self.commander.issue({self._follow[3]: 0.0}, t=now)  # 目標を無効にして、撃たせない
+                self._follow = None
             self._op = self.ops.target_despawn(t=now)
+        elif op == "aim_target":
+            self._follow = [int(c) for c in s.get("channels", [1, 2, 3, 4])]
+            self._follow_last = None
+            self._follow_t = -1e9
         elif op == "weather":
             self._op = self.ops.weather(s["fog"], s["rain"], s["wind"], t=now)
         elif op == "set":
@@ -826,9 +859,25 @@ class ExperimentRunner:
             if elapsed >= float(s["seconds"]):
                 self._rows[-1]["ok"] = True
                 self._next(now)
-        elif op == "inject":
+        elif op in ("inject", "aim_target"):
             self._rows[-1]["ok"] = True
             self._next(now)
+
+    def _feed_target(self, now: float) -> None:
+        """標的の座標をマイコンに渡す。前の分が届いてから、動いたときだけ（指示を溜めない）。"""
+        if not self._follow:
+            return
+        tg = self.ops.status().get("target") or {}
+        pos = tg.get("pos")
+        if pos is None or not self.commander.all_acked() or now - self._follow_t < self.FOLLOW_INTERVAL:
+            return
+        last = self._follow_last
+        if last is not None and max(abs(a - b) for a, b in zip(pos, last)) < self.FOLLOW_MOVE:
+            return
+        cx, cy, cz, cv = self._follow
+        self.commander.issue({cx: pos[0], cy: pos[1], cz: pos[2], cv: 1.0}, t=now)
+        self._follow_last = tuple(pos)
+        self._follow_t = now
 
     def _fail(self, now: float, reason: str) -> None:
         self._rows[-1]["ok"] = False
@@ -841,6 +890,9 @@ class ExperimentRunner:
         if self._rows and self._rows[-1]["end_s"] is None:
             self._rows[-1]["end_s"] = self._rel(now)
         self.log.append(f"止めました: {reason}")
+        if self._follow:
+            self.commander.issue({self._follow[3]: 0.0}, t=now)  # 目標を無効にして、撃たせない
+            self._follow = None
         st = self.ops.status()
         if st["vid"] >= 0:
             self._cleanup_op = self.ops.despawn(t=now)
@@ -990,7 +1042,11 @@ def make_server(host: str, port: int, recorder: Recorder, commander: Commander |
                 self._reply(200, f"error: {e}")
                 return
             now = time.monotonic()
-            recorder.add(seq, tick, vals, t=now, ack=ack)
+            try:
+                bools = parse_bools(self.path)
+            except ValueError:
+                bools = None
+            recorder.add(seq, tick, vals, t=now, ack=ack, bools=bools)
             if ack is not None:
                 commander.on_ack(ack, t=now)
             self._reply(200, commander.reply_body())

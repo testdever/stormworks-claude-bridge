@@ -25,6 +25,7 @@ class World:
         self.player = (0.0, 5.0, 0.0)
         self.first_value_delay, self.never_values, self.spawned_t = first_value_delay, never_values, None
         self.moved_to = []
+        self.target_pos = None  # 置いた標的の位置（アドオンが知らせる）
         self.ghost_from = None  # この時刻から、片付けられずに残った別の機体のマイコンも値を送る
         self.ghost_seq = 6
 
@@ -48,9 +49,15 @@ class World:
                 self.vid = -1
             elif p["op"] == "move_player":
                 self.moved_to.append(tuple(float(x) for x in p["args"]))
-            self.ops.on_poll(ack=p["id"], ok=ok, vid=self.vid, sim=1 if self.vid >= 0 else -1, players=1, t=t)
+            elif p["op"] == "target":
+                self.target_pos = [100.0, 0.0, 2000.0]
+            elif p["op"] == "target_despawn":
+                self.target_pos = None
+            self.ops.on_poll(ack=p["id"], ok=ok, vid=self.vid, sim=1 if self.vid >= 0 else -1, players=1, t=t,
+                             target=self._target())
         else:
-            self.ops.on_poll(ack=0, ok=True, vid=self.vid, sim=1 if self.vid >= 0 else -1, players=1, t=t)
+            self.ops.on_poll(ack=0, ok=True, vid=self.vid, sim=1 if self.vid >= 0 else -1, players=1, t=t,
+                             target=self._target())
         if self.vid >= 0 and not self.never_values and t - self.spawned_t >= self.first_value_delay:
             body = self.com.reply_body()
             if body.startswith("ok|"):
@@ -67,6 +74,11 @@ class World:
                 v = [math.nan] * 32
             self.rec.add(seq=self.seq, tick=self.seq * 3, values=v, t=t, ack=self.ack)
             self.com.on_ack(self.ack, t=t)
+
+    def _target(self):
+        if self.target_pos is None:
+            return None
+        return {"vid": 50, "sim": 1, "pos": list(self.target_pos)}
 
     def run(self, script, limit=200.0):
         r = relay.ExperimentRunner(self.ops, self.rec, self.com, script)
@@ -191,6 +203,43 @@ class ExperimentRunnerTest(unittest.TestCase):
         ]}
         r = World().run(script)
         self.assertEqual(r.result()["status"], "completed", r.result()["reason"])
+
+    def test_target_position_is_fed_to_the_vehicle(self):
+        script = {"name": "標的", "steps": [
+            {"op": "spawn", "vehicle": "claude_test", "offset": [0, 3, 15]},
+            {"op": "target", "vehicle": "claude_target", "distance": 2000, "y": 2},
+            {"op": "aim_target"},
+            {"op": "wait", "seconds": 2},
+            {"op": "target_despawn"},
+            {"op": "despawn"},
+        ]}
+        w = World()
+        r = w.run(script)
+        self.assertEqual(r.result()["status"], "completed", r.result()["reason"])
+        sent = [c["values"] for c in w.com.summary()["commands"]]
+        self.assertEqual(sent[0], {"1": 100.0, "2": 0.0, "3": 2000.0, "4": 1.0})
+        self.assertEqual(sent[-1], {"4": 0.0}, "終わったら目標を無効にする")
+        self.assertEqual(w.cmd[3], 2000.0)
+
+    def test_moving_target_is_fed_again_but_not_every_tick(self):
+        script = {"name": "動く標的", "steps": [
+            {"op": "spawn", "vehicle": "claude_test", "offset": [0, 3, 15]},
+            {"op": "target", "vehicle": "claude_target", "distance": 2000, "y": 2},
+            {"op": "aim_target"},
+            {"op": "wait", "seconds": 5},
+        ]}
+        w = World()
+        orig = w.tick
+
+        def tick(t):
+            if w.target_pos is not None:
+                w.target_pos[0] = 100.0 + t  # 1 m/s で動く
+            orig(t)
+        w.tick = tick
+        r = w.run(script)
+        n = len([c for c in w.com.summary()["commands"] if "1" in c["values"]])
+        self.assertGreaterEqual(n, 8)   # 0.5 秒ごとに渡し直す
+        self.assertLessEqual(n, 12)
 
     def test_bad_script_is_rejected(self):
         with self.assertRaises(ValueError):

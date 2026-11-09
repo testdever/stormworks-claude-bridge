@@ -31,7 +31,7 @@ class FakeVehicle:
         self.outputs: dict[int, float] = {}
         self.sent: list[str] = []
         g = self.lua.globals()
-        g.input = self.lua.table_from({"getNumber": lambda i: i * 1.5 - 7})
+        g.input = self.lua.table_from({"getNumber": lambda i: i * 1.5 - 7, "getBool": lambda i: i in (1, 5, 32)})
         g.output = self.lua.table_from({"setNumber": self._set_number})
         g["async"] = self.lua.table_from({"httpGet": self._http_get})
         self.lua.execute(script.read_text(encoding="utf-8"))

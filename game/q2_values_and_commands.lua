@@ -3,6 +3,7 @@
 -- out num 1-8: command values from relay (command 8 = 1: test fault, send "nan" instead of values)
 -- out num 29: ignored replies to old requests
 -- out num 30: requests sent, 31: ok replies, 32: error replies
+-- Also sends the 32 on/off input channels as b=<bitmask> (channel 1 = lowest bit)
 -- No reply: wait longer before each resend (1s, 2s, 4s .. 10s) so the game does not pile up requests
 PORT=8765
 N=32
@@ -35,16 +36,21 @@ function onTick()
 	end
 	if tick<holdT then return end
 	local v={}
+	local b=0
+	for i=N,1,-1 do
+		b=b*2
+		if input.getBool(i) then b=b+1 end
+	end
 	for i=1,N do
 		if cmd[8]>0.5 then
 			v[i]="nan"
 		else
-			v[i]=string.format("%.7g",input.getNumber(i))
+			v[i]=string.format("%.9g",input.getNumber(i))
 		end
 	end
 	seq=seq+1
 	waitT=tick
-	async.httpGet(PORT,"/v?s="..seq.."&t="..tick.."&a="..ack.."&v="..table.concat(v,","))
+	async.httpGet(PORT,"/v?s="..seq.."&t="..tick.."&a="..ack.."&b="..string.format("%.0f",b).."&v="..table.concat(v,","))
 end
 
 function backoff()
