@@ -103,6 +103,20 @@ class FcsBridgeTest(unittest.TestCase):
         v.tick(15)
         self.assertFalse(v.bools[1])
 
+    def test_no_fire_permission_while_the_fcs_predicts_a_big_miss(self):
+        v = FcsRig(self.port)
+        v.tick(5)
+        self.allow(v)
+        self.assertTrue(v.bools[1])
+        v.nums[13] = 35.0       # FCS の予測のずれが大きい
+        v.tick(1)
+        self.assertFalse(v.bools[1])
+        v.nums[13] = 0.05
+        v.tick(2)
+        self.assertFalse(v.bools[1], "小さくなってもすぐには許可しない")
+        v.tick(2)
+        self.assertTrue(v.bools[1])
+
     def test_fire_permission_turns_off_when_the_relay_is_gone(self):
         v = FcsRig(self.port)
         v.tick(5)

@@ -2,7 +2,8 @@
 -- in composite: FCS debug output (OUT4) + number ch20 barrel Tilt (turns) + ch21 pitch pivot angle,
 --   on/off ch5 = FCS ready to fire (as in test E3)
 -- out number 1-8: command values from the relay (target coordinates, in the order the procedure says)
--- out on/off 1: fire permission (command FIRE > 0.5). Off by itself if the relay stops answering for SAFE ticks
+-- out on/off 1: fire permission (command FIRE > 0.5). Off by itself if the relay stops answering for SAFE ticks,
+--   and while the FCS predicted miss (ch13) is PMAX or more, or was within the last CALM ticks
 -- out number 29: shots seen, 30: requests sent, 31: ok replies, 32: error replies
 -- Sends only the SEL channels, every SENDT ticks (sooner when a shot is waiting to be sent)
 -- Shot: fire permission was on and FCS was ready within READY ticks, and the barrel moved KICK deg or more
@@ -19,6 +20,8 @@ MAXHOLD=600
 KICK=0.15
 READY=6
 REFR=60
+PMAX=1
+CALM=3
 seq=0
 tick=0
 waitT=-1
@@ -37,13 +40,16 @@ shotN=0
 prev=nil
 sinceReady=99
 sinceFire=99
+sinceBigP=0
 sinceKick=999
 
 function onTick()
 	tick=tick+1
 	if tick-okT>SAFE then cmd[FIRE]=0 end
+	local p=input.getNumber(13)
+	sinceBigP=(p>=PMAX or p~=p) and 0 or sinceBigP+1
 	for i=1,C do output.setNumber(i,cmd[i]) end
-	output.setBool(1,cmd[FIRE]>0.5)
+	output.setBool(1,cmd[FIRE]>0.5 and sinceBigP>=CALM)
 	output.setNumber(29,shotN)
 	output.setNumber(30,seq)
 	output.setNumber(31,okN)
