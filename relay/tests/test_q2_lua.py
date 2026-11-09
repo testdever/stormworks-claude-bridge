@@ -79,6 +79,14 @@ class LuaQ2Test(unittest.TestCase):
         self.v.tick(1)
         self.assertEqual(self.v.outputs[32], 1)
 
+    def test_command_8_sends_nan_for_fault_test(self):
+        self.v.tick(4)
+        self.com.issue({8: 1.0})
+        self.v.tick(8)
+        last = self.v.sent[-1]
+        self.assertIn("v=nan,nan", last)
+        self.assertGreater(self.rec.summary()["received"], 0)
+
     def test_script_is_short_enough(self):
         self.assertLess(len(SCRIPT.read_text(encoding="utf-8")), 4096)
 

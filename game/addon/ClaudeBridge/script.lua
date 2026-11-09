@@ -2,6 +2,7 @@
 -- Polls the relay at /addon and reports the result of the last command.
 -- Reply from relay: "ok" or "ok|<id>|spawn|<save_name>|<x>|<y>|<z>|<rel>" or "ok|<id>|despawn"
 --   or "ok|<id>|lift|<dy>" (teleport the vehicle dy metres up, to check physics keeps running)
+--   or "ok|<id>|move_player|<x>|<y>|<z>" (move the first real player there, so the ground and sea load)
 --   rel=1: x,y,z are offsets from the first player's position
 PORT=8765
 TIMEOUT=60
@@ -58,6 +59,8 @@ function run(op,a)
 		return despawn()
 	elseif op=="lift" then
 		return lift(tonumber(a[1]) or 15)
+	elseif op=="move_player" then
+		return movePlayer(tonumber(a[1]),tonumber(a[2]),tonumber(a[3]))
 	end
 	return false
 end
@@ -96,6 +99,13 @@ function despawn()
 	vid=-1
 	gid=-1
 	return ok
+end
+
+function movePlayer(x,y,z)
+	if x==nil or y==nil or z==nil then return false end
+	local p=firstPlayer()
+	if p==nil then return false end
+	return server.setPlayerPos(p,matrix.translation(x,y,z))
 end
 
 function lift(dy)

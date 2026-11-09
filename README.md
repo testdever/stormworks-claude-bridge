@@ -12,6 +12,7 @@ Claude に Stormworks の計測実験を任せるための仕組み。企画書�
 | `game/addon/ClaudeBridge/script.lua` | `%APPDATA%\Stormworks\data\missions\ClaudeBridge\script.lua` | 1人用のゲーム本体 |
 | `game/addon/ClaudeBridge/playlist.xml` | `%APPDATA%\Stormworks\data\missions\ClaudeBridge\playlist.xml` | 1人用のゲーム本体 |
 | `game/q2_values_and_commands.lua` | 試験用の機体のマイコンの Lua ブロック（貼り付け） | 機体を作るとき |
+| `experiments/*.json` | `relay.py` と同じフォルダの `experiments\` の下 | 手順書を流すとき |
 
 アドオンの `script.lua` を貼り替えたら、ワールドを作り直す（専用サーバーは `%APPDATA%\Stormworks\saves\autosave_server` を消す）。
 Claude は変更のたびに、どのファイルを変えたかと、新しく増えたファイルを伝える。
@@ -192,6 +193,41 @@ Claude は変更のたびに、どのファイルを変えたかと、新しく�
   `%APPDATA%\Stormworks\data\vehicles\` に `claude_test.xml` と `claude_test_ka.xml` があるか確かめて、Claude に伝える。
 - **機体を置く場所：** 既定は Q1 で機体があった場所の 3m 上（ワールドの座標 -260.9, 8, -18949）。
   水に落ちるなど不都合があれば、`--pos x,y,z` で変える。
+
+## 試作 Q6・Q7・Q9：手順書を流す、異常で止まる、ゲームを裏で動かしても邪魔にならない
+
+Claude が書いた手順書（`experiments/*.json`）を中継プログラムが最後まで流す。見張りは、マイコンからの値が途切れた・
+アドオンからの連絡が途切れた・機体が消えた・値が壊れた（数でない値）を見つけたら、実験を止めて理由を残し、機体を片付ける。
+手順書の `watch.stop_if` で「この出力がこの範囲を外れたら止める」も書ける。
+
+### 用意（一度だけ）
+
+1. `relay/relay.py` と `game/addon/ClaudeBridge/script.lua` を、それぞれの置き場所（上の表）に貼り替える。
+   `experiments` フォルダの4つの手順書を、`relay.py` と同じフォルダの `experiments\` に置く。
+2. ゲームで `claude_test` をワークベンチに出し、マイコンの Lua ブロックを `game/q2_values_and_commands.lua` の新しい中身に貼り替えて、
+   同じ名前（`claude_test`）で上書き保存する（試験用に壊れた値を送る機能が増えた）。
+3. **ウィンドウ表示**の Stormworks で、「Claude Bridge」だけを有効にした新しい1人用ワールドを作って入る。最初の島は既定のまま。
+
+### 手順
+
+1. **Q6・Q9：** ゲームを裏にして（ほかのアプリを前にして）、次を実行する。終わるまで1分ほど。
+   その間はゲームに触らず、ふだんの作業をする。
+
+   ```
+   python relay.py --run experiments\q6_physics_sensor_order.json
+   ```
+
+   プレイヤーが実験場所へ移り、機体が出て、モーターが回って止まり、片付けられる。
+   **作業中に、マウスやキーボードを取られたか、ゲームのウィンドウが前に出てきたか、音が気になったか**を覚えておく（Q9）。
+2. **Q7：** 次の3つを順に実行する。どれも途中で止まるはず。
+   - `python relay.py --run experiments\q7_vanish.json`（アドオンが機体を消す）
+   - `python relay.py --run experiments\q7_nan.json`（マイコンが壊れた値を送る）
+   - `python relay.py --run experiments\q7_pause.json`（「ここでゲームを一時停止する（Esc）」と出たら、ゲームを Esc で一時停止する。
+     止まったと出たら、一時停止を解く）
+3. それぞれの「---- 手順書「…」の結果 ----」から下と、`logs/` の `run-日時.jsonl`・`run-日時-summary.json`・`run-日時-addon.jsonl`、
+   Q9 の感じ方を Claude に送る。
+
+ゲームが裏にあると止まってしまう（ゲームがウィンドウの外では一時停止する）場合は、Q6 が「アドオンからの連絡が途切れた」で止まる。それも大事な結果なので、そのまま送る。
 
 ## テスト
 

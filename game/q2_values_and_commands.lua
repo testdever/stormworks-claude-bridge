@@ -1,6 +1,6 @@
 -- Q2: send composite input values, apply commands from relay replies
 -- Wire: Physics Sensor (composite) -> this Lua block (composite in)
--- out num 1-8: command values from relay
+-- out num 1-8: command values from relay (command 8 = 1: test fault, send "nan" instead of values)
 -- out num 29: ignored replies to old requests
 -- out num 30: requests sent, 31: ok replies, 32: error replies
 PORT=8765
@@ -27,7 +27,11 @@ function onTick()
 	if waitT>=0 and tick-waitT<TIMEOUT then return end
 	local v={}
 	for i=1,N do
-		v[i]=string.format("%.7g",input.getNumber(i))
+		if cmd[8]>0.5 then
+			v[i]="nan"
+		else
+			v[i]=string.format("%.7g",input.getNumber(i))
+		end
 	end
 	seq=seq+1
 	waitT=tick

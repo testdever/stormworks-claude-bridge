@@ -1,0 +1,62 @@
+{
+  "name": "Q7 機体を消す",
+  "steps": [
+    {
+      "op": "move_player",
+      "pos": [
+        -260.9,
+        6,
+        -18949
+      ],
+      "label": "実験場所へ移る"
+    },
+    {
+      "op": "spawn",
+      "vehicle": "claude_test",
+      "offset": [
+        0,
+        3,
+        15
+      ],
+      "label": "機体を置く"
+    },
+    {
+      "op": "wait",
+      "seconds": 3,
+      "label": "落ち着くのを待つ"
+    },
+    {
+      "op": "set",
+      "outputs": {
+        "1": 1
+      },
+      "label": "モーターを回す"
+    },
+    {
+      "op": "wait",
+      "seconds": 4,
+      "label": "回している間"
+    },
+    {
+      "op": "inject",
+      "kind": "despawn",
+      "label": "試験：機体を消す"
+    },
+    {
+      "op": "wait",
+      "seconds": 20,
+      "label": "止まるはずの時間"
+    },
+    {
+      "op": "set",
+      "outputs": {
+        "1": 0
+      },
+      "label": "モーターを止める"
+    },
+    {
+      "op": "despawn",
+      "label": "片付ける"
+    }
+  ]
+}

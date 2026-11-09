@@ -251,6 +251,10 @@ class AddonOps:
     def despawn(self, t: float | None = None) -> int:
         return self._issue("despawn", [], t)
 
+    def move_player(self, pos: tuple[float, float, float], t: float | None = None) -> int:
+        """プレイヤー（ゲーム本体の自分）を pos へ移す。まわりの地面と海が読み込まれる。"""
+        return self._issue("move_player", [format_value(float(v)) for v in pos], t)
+
     def lift(self, dy: float = 15.0, t: float | None = None) -> int:
         """置いている機体を dy メートル持ち上げる（物理が進んでいれば、そこから落ちる）。"""
         return self._issue("lift", [format_value(float(dy))], t)
@@ -515,6 +519,237 @@ class Q4Runner:
         return {"vehicles": self.results, "q4_pass": any(v["pass"] for v in self.results)}
 
 
+class ExperimentRunner:
+    """Claude が書いた手順書（JSON）を最後まで流し、見張りが異常を見つけたら止めて理由を残す。
+
+    手順の op：
+      move_player {pos:[x,y,z]}            プレイヤーを移す（まわりの地面と海が読み込まれる）
+      spawn {vehicle, offset:[dx,dy,dz]}    プレイヤーからのずれの位置に機体を置く（pos:[x,y,z] ならワールドの座標）
+      wait {seconds}                        待つ（その間も値は記録される）
+      set {outputs:{"1":1.0}}               マイコンの出力に指示を出し、反映を待つ
+      despawn {}                            機体を片付ける
+      inject {kind:"despawn"|"nan"}         試験用にわざと異常を起こす（機体を消す／マイコンに壊れた値を送らせる）
+    どの op にも label を付けられる。
+    見張り（watch）：values_timeout_s、addon_timeout_s、values_grace_s、stop_if:[{ch, lt|gt, reason}]
+    """
+
+    OPS = {"move_player", "spawn", "wait", "set", "despawn", "inject"}
+    STEP_TIMEOUT = 10.0
+    CLEANUP_TIMEOUT = 5.0
+
+    def __init__(self, ops: AddonOps, recorder: Recorder, commander: Commander, script: dict):
+        self.ops, self.recorder, self.commander = ops, recorder, commander
+        self.script = script
+        self.steps = self._validate(script)
+        w = script.get("watch", {})
+        self.values_timeout = float(w.get("values_timeout_s", 3.0))
+        self.addon_timeout = float(w.get("addon_timeout_s", 3.0))
+        self.values_grace = float(w.get("values_grace_s", 3.0))
+        self.stop_if = list(w.get("stop_if", []))
+        self.done = False
+        self.status = "waiting"
+        self.reason = ""
+        self.log: list[str] = []
+        self._t0: float | None = None
+        self._i = -1
+        self._step_t = 0.0
+        self._op = 0
+        self._rows: list[dict] = []
+        self._injects: list[dict] = []
+        self._expected_vid: int | None = None
+        self._spawned_t: float | None = None
+        self._last_value_t: float | None = None
+        self._alarm: str | None = None
+        self._stopped_t: float | None = None
+        self._cleanup_op: int | None = None
+        self._lock = threading.Lock()
+        recorder.add_listener(self._on_values)
+
+    @classmethod
+    def _validate(cls, script: dict) -> list[dict]:
+        steps = script.get("steps")
+        if not isinstance(steps, list) or not steps:
+            raise ValueError("steps（手順の並び）がない")
+        for i, s in enumerate(steps, 1):
+            op = s.get("op") if isinstance(s, dict) else None
+            if op not in cls.OPS:
+                raise ValueError(f"{i}番目の手順の op「{op}」は使えない（{', '.join(sorted(cls.OPS))}）")
+            if op == "move_player" and len(s.get("pos", [])) != 3:
+                raise ValueError(f"{i}番目の move_player には pos:[x,y,z] が要る")
+            if op == "spawn" and not (s.get("vehicle") or script.get("vehicle")):
+                raise ValueError(f"{i}番目の spawn には vehicle（機体の保存名）が要る")
+            if op == "spawn" and len(s.get("offset", s.get("pos", [0, 0, 0]))) != 3:
+                raise ValueError(f"{i}番目の spawn の offset / pos は [x,y,z]")
+            if op == "wait" and float(s.get("seconds", -1)) < 0:
+                raise ValueError(f"{i}番目の wait には seconds が要る")
+            if op == "set" and not s.get("outputs"):
+                raise ValueError(f"{i}番目の set には outputs が要る")
+            if op == "inject" and s.get("kind") not in ("despawn", "nan"):
+                raise ValueError(f"{i}番目の inject の kind は despawn か nan")
+        return steps
+
+    # ---- 見張り ----
+    def _on_values(self, t, seq, tick, values) -> None:
+        with self._lock:
+            if self._expected_vid is None:
+                return
+            self._last_value_t = t
+            if self._alarm:
+                return
+            if any(not math.isfinite(v) for v in values):
+                self._alarm = "値が壊れた（数でない値がマイコンから届いた）"
+                return
+            for c in self.stop_if:
+                ch = int(c["ch"])
+                if ch - 1 >= len(values):
+                    continue
+                v = values[ch - 1]
+                if ("lt" in c and v < float(c["lt"])) or ("gt" in c and v > float(c["gt"])):
+                    self._alarm = c.get("reason") or f"出力{ch}が条件を外れた（{v:g}）"
+                    return
+
+    def _watch(self, now: float) -> str | None:
+        with self._lock:
+            if self._alarm:
+                return self._alarm
+            last_value = self._last_value_t
+        st = self.ops.status()
+        if st["t"] is not None and now - st["t"] > self.addon_timeout:
+            return f"アドオンからの連絡が途切れた（{now - st['t']:.1f}秒。ゲームが止まった可能性）"
+        if self._expected_vid is not None and self._spawned_t is not None:
+            if st["vid"] != self._expected_vid:
+                return "機体が消えた（アドオンが置いている機体が変わった）"
+            if now - self._spawned_t > self.values_grace:
+                since = self._spawned_t if last_value is None or last_value < self._spawned_t else last_value
+                if now - since > self.values_timeout:
+                    return f"マイコンからの値が途切れた（{now - since:.1f}秒）"
+        return None
+
+    # ---- 進行 ----
+    def _rel(self, now: float) -> float:
+        return round(now - (self._t0 or now), 3)
+
+    def step(self, now: float) -> None:
+        if self.done:
+            return
+        if self.status == "waiting":
+            if self.ops.polls == 0:
+                return
+            self._t0 = now
+            self.status = "running"
+            self.log.append(f"手順書「{self.script.get('name', '')}」を始めます（{len(self.steps)}手順）")
+            self._next(now)
+            return
+        if self.status == "cleanup":
+            o = self.ops.get(self._cleanup_op) if self._cleanup_op else None
+            if o is None or o["done_t"] is not None or now - self._stopped_t >= self.CLEANUP_TIMEOUT:
+                self.done = True
+            return
+        alarm = self._watch(now)
+        if alarm:
+            self._stop(now, alarm)
+            return
+        self._advance(now)
+
+    def _next(self, now: float) -> None:
+        if self._i >= 0:
+            self._rows[-1]["end_s"] = self._rel(now)
+        self._i += 1
+        if self._i >= len(self.steps):
+            self.status = "completed"
+            self.log.append("手順書を最後まで流しました")
+            self.done = True
+            return
+        s = self.steps[self._i]
+        self._rows.append({"i": self._i + 1, "op": s["op"], "label": s.get("label", ""),
+                           "start_s": self._rel(now), "end_s": None, "ok": None})
+        self._step_t = now
+        op = s["op"]
+        if op == "move_player":
+            self._op = self.ops.move_player(tuple(s["pos"]), t=now)
+        elif op == "spawn":
+            name = s.get("vehicle") or self.script.get("vehicle")
+            if "pos" in s:
+                self._op = self.ops.spawn(name, tuple(s["pos"]), relative=False, t=now)
+            else:
+                self._op = self.ops.spawn(name, tuple(s.get("offset", [0, 3, 15])), relative=True, t=now)
+        elif op == "set":
+            self.commander.issue({int(k): float(v) for k, v in s["outputs"].items()}, t=now)
+        elif op == "despawn":
+            self._expected_vid = None
+            self._spawned_t = None
+            self._op = self.ops.despawn(t=now)
+        elif op == "inject":
+            self._injects.append({"kind": s["kind"], "t_s": self._rel(now)})
+            if s["kind"] == "despawn":
+                self.ops.despawn(t=now)  # 手順としては機体を置いたまま。見張りが消えたことに気づくかを見る
+            else:
+                self.commander.issue({8: 1.0}, t=now)
+            self.log.append(f"試験用の異常を起こした: {s['kind']}")
+        what = s.get("label") or op
+        self.log.append(f"{self._i + 1}. {what}")
+
+    def _advance(self, now: float) -> None:
+        s = self.steps[self._i]
+        op = s["op"]
+        elapsed = now - self._step_t
+        if op in ("move_player", "spawn", "despawn"):
+            o = self.ops.get(self._op)
+            if o["done_t"] is None:
+                if elapsed >= self.STEP_TIMEOUT:
+                    self._fail(now, {"move_player": "プレイヤーを移せなかった", "spawn": "機体を置けなかった",
+                                     "despawn": "機体を片付けられなかった"}[op] + "（アドオンから返事がない）")
+                return
+            if not o["ok"]:
+                self._fail(now, {"move_player": "プレイヤーを移せなかった", "spawn": "機体を置けなかった",
+                                 "despawn": "機体を片付けられなかった"}[op])
+                return
+            if op == "spawn":
+                self._expected_vid = o["vid"]
+                self._spawned_t = now
+            self._rows[-1]["ok"] = True
+            self._next(now)
+        elif op == "set":
+            if self.commander.all_acked():
+                self._rows[-1]["ok"] = True
+                self._next(now)
+            elif elapsed >= 5.0:
+                self._fail(now, "指示が機体に届かない（5秒）")
+        elif op == "wait":
+            if elapsed >= float(s["seconds"]):
+                self._rows[-1]["ok"] = True
+                self._next(now)
+        elif op == "inject":
+            self._rows[-1]["ok"] = True
+            self._next(now)
+
+    def _fail(self, now: float, reason: str) -> None:
+        self._rows[-1]["ok"] = False
+        self._stop(now, reason)
+
+    def _stop(self, now: float, reason: str) -> None:
+        self.status = "stopped"
+        self.reason = reason
+        self._stopped_t = now
+        if self._rows and self._rows[-1]["end_s"] is None:
+            self._rows[-1]["end_s"] = self._rel(now)
+        self.log.append(f"止めました: {reason}")
+        if self.ops.status()["vid"] >= 0:
+            self._cleanup_op = self.ops.despawn(t=now)
+        self._expected_vid = None
+        self.status = "cleanup"
+
+    def result(self) -> dict:
+        status = "completed" if self.status == "completed" else ("stopped" if self._stopped_t is not None else self.status)
+        res = {"name": self.script.get("name", ""), "status": status, "reason": self.reason,
+               "steps": self._rows, "injects": self._injects,
+               "stopped_at_s": self._rel(self._stopped_t) if self._stopped_t is not None else None,
+               "stop_latency_s": None}
+        if self._stopped_t is not None and self._injects:
+            res["stop_latency_s"] = round(res["stopped_at_s"] - self._injects[-1]["t_s"], 3)
+        return res
+
+
 class ProcessSampler:
     """プロセスの CPU 使用率とメモリを一定間隔で記録する（Windows では PowerShell を使う）。"""
 
@@ -739,6 +974,28 @@ def report_q4(q: dict, load: dict | None) -> str:
     return "\n".join(lines)
 
 
+def report_run(r: dict, s: dict, load: dict | None) -> str:
+    lines = [f"---- 手順書「{r['name']}」の結果 ----"]
+    for st in r["steps"]:
+        mark = {True: "OK", False: "失敗", None: "途中"}[st["ok"]]
+        label = f"（{st['label']}）" if st.get("label") else ""
+        lines.append(f"{st['i']:2d}. {st['op']}{label}  {st['start_s']}〜{st['end_s']}秒  {mark}")
+    if r["status"] == "completed":
+        lines.append("最後まで流れた（本人の操作なし）")
+    else:
+        lines.append(f"止まった: {r['reason']}（{r['stopped_at_s']}秒）")
+        if r.get("stop_latency_s") is not None:
+            lines.append(f"試験用の異常を起こしてから止まるまで: {r['stop_latency_s']}秒")
+    lines.append(f"マイコンからの値: {s['received']}件")
+    if load is not None:
+        if load["available"]:
+            lines.append(f"{load['process']} の負荷: CPU 平均 {load['cpu_percent_avg']}% / 最大 {load['cpu_percent_max']}%"
+                         f"（{load['cores']}論理コアに対する割合）、メモリ最大 {load['memory_mb_max']} MB")
+        else:
+            lines.append(f"{load['process']} の負荷は測れなかった")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -764,7 +1021,10 @@ def main(argv: list[str] | None = None) -> int:
                     help="q4: 順に置く機体の保存名（カンマ区切り、既定 claude_test,claude_test_ka）")
     ap.add_argument("--pos", default="-260.9,8,-18949",
                     help="q4: 機体を置くワールドの座標 x,y,z（既定は Q1 で機体があった場所の 3m 上）")
-    ap.add_argument("--process", default="server64", help="q4: 負荷を記録するプロセス名（既定 server64）")
+    ap.add_argument("--process", default=None,
+                    help="負荷を記録するプロセス名（q4 の既定 server64、--run の既定 stormworks64）")
+    ap.add_argument("--run", metavar="手順書.json",
+                    help="Claude が書いた手順書を最後まで流す（--mode より優先）。見張りが異常を見つけたら止める")
     ap.add_argument("--logdir", default="logs", help="記録を書くフォルダ（既定 logs）")
     args = ap.parse_args(argv)
     cmd_values = [float(x) for x in args.cmd_values.split(",")]
@@ -774,6 +1034,15 @@ def main(argv: list[str] | None = None) -> int:
     if len(offset) != 3:
         ap.error("--offset は x,y,z の3つの数")
 
+    script = None
+    if args.run:
+        try:
+            script = json.loads(Path(args.run).read_text(encoding="utf-8"))
+            ExperimentRunner._validate(script)
+        except (OSError, ValueError) as e:
+            ap.error(f"手順書 {args.run} が読めない: {e}")
+        args.mode = "run"
+
     logdir = Path(args.logdir)
     logdir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -781,7 +1050,7 @@ def main(argv: list[str] | None = None) -> int:
     log_path = logdir / f"{name}.jsonl"
     rec = Recorder(expected_values=args.values, log_path=log_path)
     com = Commander()
-    ops = AddonOps(log_path=logdir / f"{name}-addon.jsonl" if args.mode in ("q3", "q4") else None)
+    ops = AddonOps(log_path=logdir / f"{name}-addon.jsonl" if args.mode in ("q3", "q4", "run") else None)
     runner = None
     sampler = None
     if args.mode == "q3":
@@ -792,7 +1061,11 @@ def main(argv: list[str] | None = None) -> int:
             ap.error("--pos は x,y,z の3つの数")
         vehicles = [v.strip() for v in args.vehicles.split(",") if v.strip()]
         runner = Q4Runner(ops, rec, com, vehicles=vehicles, pos=pos, seconds=args.seconds or Q1_MIN_SECONDS)
-        sampler = ProcessSampler(args.process)
+        sampler = ProcessSampler(args.process or "server64")
+        sampler.start()
+    elif args.mode == "run":
+        runner = ExperimentRunner(ops, rec, com, script)
+        sampler = ProcessSampler(args.process or "stormworks64")
         sampler.start()
     server = make_server("127.0.0.1", args.port, rec, com, ops)
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -807,6 +1080,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"アドオンから連絡が来たら、{', '.join(runner.vehicles)} を1台ずつ置き、"
               f"{runner.seconds:g}秒ずつ物理が進むかを見ます。")
         print("専用サーバーを起動すると始まります。終わるまで、ゲームからサーバーに接続しないでください。Ctrl+C で止めます。")
+    elif args.mode == "run":
+        print(f"手順書「{script.get('name', args.run)}」（{len(script['steps'])}手順）を、アドオンから連絡が来たら流します。")
+        print("アドオンを有効にしたワールドに入ると始まります。Ctrl+C で止めます。")
     else:
         print("ゲームで機体を出すと受信が始まります。Ctrl+C で止めます。")
 
@@ -878,6 +1154,11 @@ def main(argv: list[str] | None = None) -> int:
     elif args.mode == "q3":
         out = {"values": s, "q3": runner.summary(), "addon_ops": ops.summary()}
         text = report_q3(out["q3"])
+    elif args.mode == "run":
+        load = sampler.summary()
+        out = {"script": script, "result": runner.result(), "values": s, "load": load,
+               "load_samples": sampler.samples, "addon_ops": ops.summary()}
+        text = report_run(out["result"], s, load)
     else:
         load = sampler.summary()
         out = {"values": s, "q4": runner.summary(), "load": load, "load_samples": sampler.samples,

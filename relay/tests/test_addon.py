@@ -140,6 +140,7 @@ class FakeServerApi:
         self.announces: list[str] = []
         self.spawned_at: list[tuple] = []
         self.moved_to: list[tuple] = []
+        self.player_moves: list[tuple] = []
         self.players = [{"id": 0, "name": "p", "steam_id": "76561198000000000"}]
 
     def table(self):
@@ -153,6 +154,7 @@ class FakeServerApi:
             "getPlayers": lambda: L.table_from({i + 1: L.table_from(p) for i, p in enumerate(self.players)}),
             "getVehiclePos": lambda vid: (L.table_from({"x": 1.0, "y": 2.0, "z": 3.0}), vid in self.vehicles),
             "setVehiclePos": lambda vid, m: (self.moved_to.append((vid, m["x"], m["y"], m["z"])) or vid in self.vehicles),
+            "setPlayerPos": lambda pid, m: (self.player_moves.append((pid, m["x"], m["y"], m["z"])) or True),
             "getPlayerPos": lambda pid: (L.table_from({"x": 10.0, "y": 2.0, "z": -5.0}), True),
             "announce": lambda name, msg: self.announces.append(str(msg)),
         })
@@ -240,6 +242,20 @@ class AddonLuaTest(unittest.TestCase):
         self.ops.spawn("boat", (0, 0, 0), relative=False)
         self.tick(8)
         self.assertEqual(self.ops.status()["pos"], (1.0, 2.0, 3.0))
+
+    def test_move_player(self):
+        self.tick(3)
+        a = self.ops.move_player((100, 5, 200))
+        self.tick(6)
+        self.assertTrue(self.ops.get(a)["ok"])
+        self.assertEqual(self.api.player_moves, [(0, 100.0, 5.0, 200.0)])
+
+    def test_move_player_without_real_player_fails(self):
+        self.api.players = [{"id": 0, "name": "Server", "steam_id": "0"}]
+        self.tick(3)
+        a = self.ops.move_player((100, 5, 200))
+        self.tick(6)
+        self.assertFalse(self.ops.get(a)["ok"])
 
     def test_lift_without_vehicle_fails(self):
         self.tick(3)
