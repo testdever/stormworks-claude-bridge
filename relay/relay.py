@@ -227,11 +227,12 @@ class Commander:
 class AddonOps:
     """アドオンへの指示（機体を置く・片付ける）。古いものから順に1件ずつ渡し、結果を受け取る。"""
 
-    def __init__(self):
+    def __init__(self, log_path: Path | None = None):
         self._lock = threading.Lock()
         self._ops: list[dict] = []  # {id, op, args, issued_t, done_t, ok, vid}
-        self._status = {"vid": -1, "sim": -1, "players": 0, "t": None}
+        self._status = {"vid": -1, "sim": -1, "players": 0, "pos": None, "t": None}
         self.polls = 0
+        self._log = open(log_path, "a", encoding="utf-8") if log_path else None
 
     def _issue(self, op: str, args: list[str], t: float | None) -> int:
         t = time.monotonic() if t is None else t
@@ -267,11 +268,17 @@ class AddonOps:
             return "ok"
         return "|".join(["ok", str(o["id"]), o["op"], *o["args"]])
 
-    def on_poll(self, ack: int, ok: bool, vid: int, sim: int, players: int, t: float | None = None) -> None:
+    def on_poll(self, ack: int, ok: bool, vid: int, sim: int, players: int, t: float | None = None,
+                pos: tuple[float, float, float] | None = None) -> None:
         t = time.monotonic() if t is None else t
         with self._lock:
             self.polls += 1
-            self._status = {"vid": vid, "sim": sim, "players": players, "t": t}
+            self._status = {"vid": vid, "sim": sim, "players": players, "pos": pos, "t": t}
+            if self._log and vid >= 0:
+                row = {"t": round(t, 4), "vid": vid, "sim": sim, "players": players}
+                if pos is not None:
+                    row["pos"] = list(pos)
+                self._log.write(json.dumps(row, ensure_ascii=False) + "\n")
             for o in self._ops:
                 if o["id"] <= ack and o["done_t"] is None:
                     o["done_t"] = t
@@ -286,6 +293,11 @@ class AddonOps:
     def status(self) -> dict:
         with self._lock:
             return dict(self._status)
+
+    def close(self) -> None:
+        if self._log:
+            self._log.close()
+            self._log = None
 
     def summary(self) -> dict:
         with self._lock:
@@ -391,6 +403,7 @@ class Q4Runner:
         self._cur: dict = {}
         self._op, self._mark = 0, 0.0
         self._samples: list[tuple[float, list[float]]] = []
+        self._pos_samples: list[tuple[float, tuple[float, float, float]]] = []
         self._lock = threading.Lock()
         recorder.add_listener(self._on_values)
 
@@ -414,6 +427,7 @@ class Q4Runner:
                     self.commander.issue({1: 1.0}, t=now)
                     with self._lock:
                         self._samples = []
+                        self._pos_samples = []
                         self.state = "observing"
                     self._mark = now
                     self._cur["max_players"] = self.ops.status()["players"]
@@ -427,6 +441,8 @@ class Q4Runner:
             st = self.ops.status()
             self._cur["max_players"] = max(self._cur["max_players"], st["players"])
             self._cur["sim_seen"].add(st["sim"])
+            if st.get("pos") is not None:
+                self._pos_samples.append((now, st["pos"]))
             n_windows = max(1, int(round(self.seconds / self.window)))
             if self.lift and self._lifts_done < n_windows and now >= self._mark + self._lifts_done * self.window + 0.5:
                 self._cur["lifts"].append(self.ops.lift(self.lift, t=now))
@@ -436,6 +452,7 @@ class Q4Runner:
                     self.state = "despawning"
                     samples = list(self._samples)
                 self._cur["windows"] = self._judge(samples, self._mark)
+                self._cur["addon_pos_windows"] = self._pos_windows(list(self._pos_samples), self._mark)
                 self._op = self.ops.despawn(t=now)
                 self._mark = now
         elif self.state == "despawning":
@@ -471,6 +488,17 @@ class Q4Runner:
                         break
             wins.append({"from_s": round(i * self.window, 1), "values": len(vals), "changed": changed})
         return wins
+
+    def _pos_windows(self, samples, start: float) -> list[dict]:
+        """アドオンが送る機体の位置（ゲームが持つ位置）を、区切りごとにまとめる。"""
+        n = max(1, int(round(self.seconds / self.window)))
+        out = []
+        for i in range(n):
+            lo, hi = start + i * self.window, start + (i + 1) * self.window
+            ys = [p[1] for t, p in samples if lo <= t < hi]
+            out.append({"from_s": round(i * self.window, 1), "samples": len(ys),
+                        "y_min": round(min(ys), 2) if ys else None, "y_max": round(max(ys), 2) if ys else None})
+        return out
 
     def _finish_vehicle(self, now: float, observed: bool) -> None:
         c = self._cur
@@ -593,10 +621,13 @@ def make_server(host: str, port: int, recorder: Recorder, commander: Commander |
                 vid = int(q.get("vid", ["-1"])[0])
                 sim = int(q.get("sim", ["-1"])[0])
                 players = int(q.get("np", ["0"])[0])
+                pos = None
+                if all(k in q for k in ("px", "py", "pz")):
+                    pos = (float(q["px"][0]), float(q["py"][0]), float(q["pz"][0]))
             except (KeyError, ValueError) as e:
                 self._reply(200, f"error: {e}")
                 return
-            addon.on_poll(ack, ok, vid, sim, players)
+            addon.on_poll(ack, ok, vid, sim, players, pos=pos)
             self._reply(200, addon.reply_body())
 
         def _values(self) -> None:
@@ -689,9 +720,13 @@ def report_q4(q: dict, load: dict | None) -> str:
         lines.append(f"「{v['name']}」: 置く {'できた' if v.get('spawn_ok') else 'できなかった'}、"
                      f"その間のプレイヤー最大 {v.get('max_players', '-')}人、"
                      f"持ち上げ {sum(lifts)}/{len(lifts)}回成功")
-        for w in v.get("windows", []):
-            lines.append(f"  {w['from_s']:5.0f}秒〜: マイコンからの値 {w['values']}件、"
-                         + ("値が変わっている" if w["changed"] else "値が止まっている"))
+        pws = v.get("addon_pos_windows", [])
+        for k, w in enumerate(v.get("windows", [])):
+            line = (f"  {w['from_s']:5.0f}秒〜: マイコンからの値 {w['values']}件、"
+                    + ("値が変わっている" if w["changed"] else "値が止まっている"))
+            if k < len(pws) and pws[k]["samples"]:
+                line += f"、アドオンから見た高さ {pws[k]['y_min']}〜{pws[k]['y_max']} m"
+            lines.append(line)
         lines.append("  → " + ("物理が進み続けた" if v["pass"] else "物理が進み続けたとは言えない"))
     lines.append("Q4 の基準（誰も接続していない状態で60秒間、値が変わり続けて届く）: "
                  + ("満たした" if q["q4_pass"] else "満たさなかった"))
@@ -746,7 +781,7 @@ def main(argv: list[str] | None = None) -> int:
     log_path = logdir / f"{name}.jsonl"
     rec = Recorder(expected_values=args.values, log_path=log_path)
     com = Commander()
-    ops = AddonOps()
+    ops = AddonOps(log_path=logdir / f"{name}-addon.jsonl" if args.mode in ("q3", "q4") else None)
     runner = None
     sampler = None
     if args.mode == "q3":
@@ -830,6 +865,7 @@ def main(argv: list[str] | None = None) -> int:
         server.shutdown()
         server.server_close()
         rec.close()
+        ops.close()
 
     s = rec.summary()
     summary_path = logdir / f"{name}-summary.json"

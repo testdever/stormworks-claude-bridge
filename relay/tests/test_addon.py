@@ -235,6 +235,12 @@ class AddonLuaTest(unittest.TestCase):
         self.assertTrue(self.ops.get(a)["ok"])
         self.assertEqual(self.api.moved_to[-1][1:], (1.0, 17.0, 3.0))
 
+    def test_poll_reports_vehicle_position(self):
+        self.tick(3)
+        self.ops.spawn("boat", (0, 0, 0), relative=False)
+        self.tick(8)
+        self.assertEqual(self.ops.status()["pos"], (1.0, 2.0, 3.0))
+
     def test_lift_without_vehicle_fails(self):
         self.tick(3)
         a = self.ops.lift(15)

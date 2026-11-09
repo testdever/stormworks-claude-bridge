@@ -38,7 +38,8 @@ class Sim:
                     self.vid += 2
                     self.name, self.spawned_t, self.seq = p["args"][0], t, 0
                     self.lifted_t = t
-                    self.ops.on_poll(ack=p["id"], ok=True, vid=self.vid, sim=1, players=self.players, t=t)
+                    self.ops.on_poll(ack=p["id"], ok=True, vid=self.vid, sim=1, players=self.players, t=t,
+                                     pos=(0.0, 8.0, 0.0))
                 elif p["op"] == "lift":
                     self.lifted_t, self.lifts = t, self.lifts + 1
                     self.ops.on_poll(ack=p["id"], ok=self.name is not None, vid=self.vid, sim=1, players=self.players, t=t)
@@ -108,6 +109,26 @@ class Q4RunnerTest(unittest.TestCase):
         q = sim.run(sim.runner(["a"])).summary()
         self.assertEqual(sim.lifts, 3)
         self.assertEqual(q["vehicles"][0]["lifts"], [True, True, True])
+
+    def test_addon_position_is_summarised_per_window(self):
+        sim = Sim()
+        r = sim.runner(["a"])
+        t = 0.0
+        sim.ops.on_poll(ack=0, ok=True, vid=-1, sim=-1, players=0, t=t)
+        y = 8.0
+        while not r.done and t < 100:
+            t += 0.05
+            r.step(t)
+            p = sim.ops.pending()
+            if p:
+                sim.ops.on_poll(ack=p["id"], ok=True, vid=3, sim=1, players=0, t=t, pos=(0.0, y, 0.0))
+            else:
+                y = max(0.0, y - 0.5)
+                sim.ops.on_poll(ack=0, ok=True, vid=3, sim=1, players=0, t=t, pos=(0.0, y, 0.0))
+        pw = r.summary()["vehicles"][0]["addon_pos_windows"]
+        self.assertEqual(len(pw), 3)
+        self.assertTrue(all(w["samples"] > 0 for w in pw))
+        self.assertLess(pw[0]["y_min"], pw[0]["y_max"])
 
     def test_spin_command_issued_per_vehicle(self):
         sim = Sim()

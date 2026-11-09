@@ -30,7 +30,7 @@ function onTick(game_ticks)
 	if waitT>=0 and t-waitT<TIMEOUT then return end
 	seq=seq+1
 	waitT=t
-	server.httpGet(PORT,"/addon?s="..seq.."&a="..ack.."&r="..res.."&vid="..vid.."&sim="..simState().."&np="..playerCount())
+	server.httpGet(PORT,"/addon?s="..seq.."&a="..ack.."&r="..res.."&vid="..vid.."&sim="..simState().."&np="..playerCount()..posQuery())
 end
 
 function httpReply(port,request,reply)
@@ -104,6 +104,15 @@ function lift(dy)
 	if not ok then return false end
 	local x,y,z=matrix.position(m)
 	return server.setVehiclePos(vid,matrix.translation(x,y+dy,z))
+end
+
+-- the vehicle's world position as the game holds it (independent of on-board sensors)
+function posQuery()
+	if vid<0 then return "" end
+	local m,ok=server.getVehiclePos(vid)
+	if not ok then return "" end
+	local x,y,z=matrix.position(m)
+	return string.format("&px=%.3f&py=%.3f&pz=%.3f",x,y,z)
 end
 
 function simState()
