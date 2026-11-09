@@ -76,6 +76,37 @@ def parse_number(text: str) -> float:
         raise
 
 
+def parse_channels(path: str) -> list[int] | None:
+    """マイコンが一部のチャンネルだけ送るときの ch=7,8,9（v の並びと同じ順）。なければ None（v は 1ch から順）。"""
+    q = parse_qs(urlsplit(path).query)
+    if "ch" not in q:
+        return None
+    chans = [int(x) for x in q["ch"][0].split(",") if x]
+    if any(not 1 <= c <= 32 for c in chans):
+        raise ValueError("ch は 1〜32")
+    return chans
+
+
+SHOT_FIELDS = ("n", "tick", "diff", "req", "range", "pred", "tof")
+
+
+def parse_shots(path: str) -> list[dict]:
+    """FCS のつなぎの Lua の shot=<n>:<tick>:<diff>:<req>:<range>:<pred>:<tof>;... を読む。"""
+    q = parse_qs(urlsplit(path).query)
+    out = []
+    for item in q.get("shot", [""])[0].split(";"):
+        if not item:
+            continue
+        f = item.split(":")
+        if len(f) != len(SHOT_FIELDS):
+            raise ValueError(f"shot の形が違う: {item}")
+        rec = {"n": int(f[0]), "tick": int(f[1])}
+        for k, x in zip(SHOT_FIELDS[2:], f[2:]):
+            rec[k] = parse_number(x)
+        out.append(rec)
+    return out
+
+
 def parse_bools(path: str) -> list[bool] | None:
     """マイコンが送るオン/オフの値 b=<32ビットの数>（1ch が最下位ビット）。なければ None。"""
     q = parse_qs(urlsplit(path).query)
@@ -122,15 +153,27 @@ class Recorder:
         self._log = open(log_path, "a", encoding="utf-8", buffering=1) if log_path else None
         self._listeners: list = []
         self.malformed_examples: list[dict] = []  # はじいた要求の中身（はじめの20件）
+        self._shots: dict[int, dict] = {}  # FCS のつなぎの Lua が送る1発ごとの記録（番号で重複を除く）
 
     def add_listener(self, fn) -> None:
         """値が届くたびに fn(t, seq, tick, values) を呼ぶ。"""
         self._listeners.append(fn)
 
     def add(self, seq: int, tick: int, values: list[float], t: float | None = None, ack: int | None = None,
-            bools: list[bool] | None = None) -> None:
+            bools: list[bool] | None = None, channels: list[int] | None = None,
+            shots: list[dict] | None = None) -> None:
         t = time.monotonic() if t is None else t
+        if channels is not None:
+            if len(channels) != len(values):
+                raise ValueError("ch と v の数が合わない")
+            raw, values = values, [0.0] * self.expected_values
+            for c, x in zip(channels, raw):
+                if c <= len(values):
+                    values[c - 1] = x
         with self._lock:
+            for s in shots or []:
+                if s["n"] not in self._shots:
+                    self._shots[s["n"]] = {**s, "t": t}
             self._times.append(t)
             self._seqs.append(seq)
             if self._prev and seq == self._prev[0] + 1 and tick - self._prev[1] >= RESEND_TICKS:
@@ -138,16 +181,31 @@ class Recorder:
             self._prev = (seq, tick)
             if len(values) != self.expected_values:
                 self._bad_values += 1
+            sent = list(zip(channels, raw)) if channels is not None else None
             if self._log:
                 row = {"t": round(t, 4), "seq": seq, "tick": tick}
                 if ack is not None:
                     row["a"] = ack
-                row["v"] = [v if math.isfinite(v) else str(v) for v in values]
+                if sent is not None:
+                    row["ch"] = [c for c, _ in sent]
+                    row["v"] = [x if math.isfinite(x) else str(x) for _, x in sent]
+                else:
+                    row["v"] = [v if math.isfinite(v) else str(v) for v in values]
+                if shots:
+                    row["shots"] = shots
                 if bools is not None:
                     row["b"] = [i + 1 for i, x in enumerate(bools) if x]
                 self._log.write(json.dumps(row, ensure_ascii=False) + "\n")
         for fn in self._listeners:
             fn(t, seq, tick, values)
+
+    def shot_count(self) -> int:
+        with self._lock:
+            return len(self._shots)
+
+    def shots(self) -> list[dict]:
+        with self._lock:
+            return [dict(s) for _, s in sorted(self._shots.items())]
 
     def add_malformed(self, raw: str | None = None, reason: str = "") -> None:
         with self._lock:
@@ -225,9 +283,14 @@ class Commander:
         with self._lock:
             if not self._commands or self._commands[-1]["ack_t"] is not None:
                 return "ok"
-            c = self._commands[-1]
-            body = ",".join(f"{ch}={format_value(v)}" for ch, v in c["values"].items())
-            return f"ok|{c['id']}|{body}"
+            # まだ届いていない指示は、まとめて送る（あとの指示が同じチャンネルを上書きする）。
+            # 置き換えると、たとえば「射撃許可を切る」が、座標の渡し直しで消えてしまう
+            merged: dict[int, float] = {}
+            for c in self._commands:
+                if c["ack_t"] is None:
+                    merged.update(c["values"])
+            body = ",".join(f"{ch}={format_value(v)}" for ch, v in sorted(merged.items()))
+            return f"ok|{self._commands[-1]['id']}|{body}"
 
     def issued(self) -> int:
         with self._lock:
@@ -265,6 +328,7 @@ class AddonOps:
         self.damage: list[dict] = []
         self.damage_lost = 0
         self.stop_requests = 0  # 本人がチャットで ?claude stop と打った回数（アドオンが数える）
+        self.target_pose: dict[int, dict] = {}  # 標的ごとの、向き（方位）と立ち具合の最小・最大
         # 指示の番号は _base+1 から。同じワールドのまま中継プログラムを起動し直すと、アドオンは前の番号まで
         # 受け取り済みと覚えていて、それ以下の番号を無視する。最初の連絡で、その続きから振るようにする。
         self._base = 0
@@ -291,11 +355,17 @@ class AddonOps:
         """プレイヤー（ゲーム本体の自分）を pos へ移す。まわりの地面と海が読み込まれる。"""
         return self._issue("move_player", [format_value(float(v)) for v in pos], t)
 
-    def target(self, name: str, distance: float, y: float, t: float | None = None) -> int:
-        """プレイヤーが向いている方向（水平）の distance m 先、高さ y に標的を置く。"""
+    def target(self, name: str, distance: float, y: float, same_direction: bool = False, t: float | None = None) -> int:
+        """プレイヤーが向いている方向（水平）の distance m 先、高さ y に標的を置く。
+        same_direction なら、前の標的と同じ場所から同じ方向に置く（その間にプレイヤーが向きを変えてもよい）。"""
         if not name or any(c in name for c in "|\r\n"):
             raise ValueError("標的の名前が空か、使えない文字（| や改行）を含む")
-        return self._issue("target", [name, format_value(float(distance)), format_value(float(y))], t)
+        return self._issue("target", [name, format_value(float(distance)), format_value(float(y)),
+                                      "1" if same_direction else "0"], t)
+
+    def target_reset(self, t: float | None = None) -> int:
+        """標的を、置いたときの位置と向きに戻す（機体は読み込み直される）。"""
+        return self._issue("target_reset", [], t)
 
     def target_despawn(self, t: float | None = None) -> int:
         return self._issue("target_despawn", [], t)
@@ -337,6 +407,12 @@ class AddonOps:
                 self.damage.append({"t": t, **d})
             self.damage_lost = max(self.damage_lost, damage_lost)
             self.stop_requests = max(self.stop_requests, stop_requests)
+            if target and "yaw" in target:
+                p = self.target_pose.setdefault(target["vid"], {"yaw_min": target["yaw"], "yaw_max": target["yaw"],
+                                                                "up_min": target.get("up", 1.0)})
+                p["yaw_min"] = min(p["yaw_min"], target["yaw"])
+                p["yaw_max"] = max(p["yaw_max"], target["yaw"])
+                p["up_min"] = min(p["up_min"], target.get("up", 1.0))
             if self._log and (vid >= 0 or target or damage):
                 row = {"t": round(t, 4), "vid": vid, "sim": sim, "players": players}
                 if pos is not None:
@@ -372,7 +448,8 @@ class AddonOps:
         rows = [{"id": o["id"], "op": o["op"], "args": o["args"], "ok": o["ok"], "vid": o["vid"],
                  "latency_s": None if o["done_t"] is None else round(o["done_t"] - o["issued_t"], 3)}
                 for o in ops]
-        return {"ops": rows, "polls": self.polls, "damage": self.damage_summary()}
+        return {"ops": rows, "polls": self.polls, "damage": self.damage_summary(),
+                "target_pose": {str(k): v for k, v in self.target_pose.items()}}
 
     def damage_summary(self) -> dict:
         with self._lock:
@@ -386,6 +463,37 @@ class AddonOps:
             v["voxels"].add(tuple(d["voxel"]))
         return {"lost": lost, "vehicles": {str(k): {"events": v["events"], "amount": round(v["amount"], 3),
                                                     "voxels": len(v["voxels"])} for k, v in per.items()}}
+
+
+def fcs_summary(shots: list[dict], damage: list[dict], target_vids: set[int] | None = None) -> dict:
+    """1発ごとに当たったか（飛ぶ時間のあたりに標的が傷ついたか）を決め、距離ごとにまとめる。"""
+    hits_t = sorted(d["t"] for d in damage if target_vids is None or d["vehicle"] in target_vids)
+    rows = []
+    for s in shots:
+        lo, hi = s["t"] + s["tof"] - 0.7, s["t"] + s["tof"] + 1.5
+        hit = any(lo <= h <= hi for h in hits_t)
+        miss_m = s["range"] * math.tan(math.radians(s["diff"]))
+        rows.append({"n": s["n"], "t": round(s["t"], 3), "range": round(s["range"], 1), "diff_deg": s["diff"],
+                     "aim_miss_m": round(miss_m, 3), "pred_m": s["pred"], "tof": s["tof"], "hit": hit})
+    groups: dict[int, list[dict]] = {}
+    for r in rows:
+        groups.setdefault(int(round(r["range"] / 100.0)) * 100, []).append(r)
+    out = []
+    for rng, g in sorted(groups.items()):
+        m = [r["aim_miss_m"] for r in g]
+        mean = sum(m) / len(m)
+        sd = (sum((x - mean) ** 2 for x in m) / (len(m) - 1)) ** 0.5 if len(m) > 1 else 0.0
+        out.append({"range_m": rng, "shots": len(g), "hits": sum(r["hit"] for r in g),
+                    "aim_bias_m": round(mean, 3), "aim_sd_m": round(sd, 3)})
+    return {"by_range": out, "shots": rows}
+
+
+def report_fcs(f: dict) -> list[str]:
+    lines = []
+    for g in f["by_range"]:
+        lines.append(f"約 {g['range_m']} m：{g['shots']}発中 {g['hits']}発当たり。撃った瞬間の照準のずれ（標的の位置で）"
+                     f" 偏り {g['aim_bias_m']:+.2f} m、ばらつき {g['aim_sd_m']:.2f} m")
+    return lines
 
 
 def parse_damage(text: str) -> list[dict]:
@@ -625,13 +733,14 @@ class ExperimentRunner:
     """
 
     OPS = {"move_player", "spawn", "wait", "set", "despawn", "inject", "target", "target_despawn", "weather",
-           "aim_target"}
+           "aim_target", "fire", "target_reset"}
     FOLLOW_INTERVAL = 0.5   # 標的の座標を渡し直す間隔の下限（秒）
     FOLLOW_MOVE = 0.02      # これより動いたら渡し直す（m）
     STEP_TIMEOUT = 10.0
     FAIL_TEXT = {"move_player": "プレイヤーを移せなかった", "spawn": "機体を置けなかった",
                  "despawn": "機体を片付けられなかった", "target": "標的を置けなかった",
-                 "target_despawn": "標的を片付けられなかった", "weather": "天気を変えられなかった"}
+                 "target_despawn": "標的を片付けられなかった", "weather": "天気を変えられなかった",
+                 "target_reset": "標的を戻せなかった"}
     CLEANUP_TIMEOUT = 5.0
 
     def __init__(self, ops: AddonOps, recorder: Recorder, commander: Commander, script: dict):
@@ -665,16 +774,40 @@ class ExperimentRunner:
         self._follow_last: tuple | None = None
         self._follow_t = -1e9
         self._stops_seen = 0
+        self._fire_ch: int | None = None   # fire で射撃許可を出したチャンネル
+        self._fire_base = 0
+        self._shot_marks: list[dict] = []  # fire の手順ごとの、撃った番号の範囲
         # マイコンごとの値の流れ。1台のマイコンの通し番号と tick は増え続けるので、続かない値は別のマイコンから来ている
         self._streams: list[dict] = []
         self._lock = threading.Lock()
         recorder.add_listener(self._on_values)
 
     @classmethod
+    def _expand(cls, steps: list) -> list:
+        """repeat {times, steps} を展開する。"""
+        out = []
+        for s in steps:
+            if isinstance(s, dict) and s.get("op") == "repeat":
+                n = int(s.get("times", 0))
+                inner = s.get("steps")
+                if n < 1 or not isinstance(inner, list) or not inner:
+                    raise ValueError("repeat には times（1以上）と steps が要る")
+                for k in range(n):
+                    for x in cls._expand(inner):
+                        x = dict(x)
+                        if x.get("label"):
+                            x["label"] = f"{x['label']}（{k + 1}/{n}）"
+                        out.append(x)
+            else:
+                out.append(s)
+        return out
+
+    @classmethod
     def _validate(cls, script: dict) -> list[dict]:
         steps = script.get("steps")
         if not isinstance(steps, list) or not steps:
             raise ValueError("steps（手順の並び）がない")
+        steps = cls._expand(steps)
         for i, s in enumerate(steps, 1):
             op = s.get("op") if isinstance(s, dict) else None
             if op not in cls.OPS:
@@ -693,6 +826,8 @@ class ExperimentRunner:
                 raise ValueError(f"{i}番目の target には vehicle・distance（m）・y（高さ）が要る")
             if op == "weather" and not all(k in s for k in ("fog", "rain", "wind")):
                 raise ValueError(f"{i}番目の weather には fog・rain・wind（0〜1）が要る")
+            if op == "fire" and int(s.get("shots", 0)) < 1:
+                raise ValueError(f"{i}番目の fire には shots（撃つ数、1以上）が要る")
             if op == "aim_target" and len(s.get("channels", [1, 2, 3, 4])) != 4:
                 raise ValueError(f"{i}番目の aim_target の channels は [X, Y, Z, 有効] の4つ")
             if op == "inject" and s.get("kind") not in ("despawn", "nan"):
@@ -798,9 +933,7 @@ class ExperimentRunner:
         self._i += 1
         if self._i >= len(self.steps):
             self.status = "completed"
-            if self._follow:
-                self.commander.issue({self._follow[3]: 0.0}, t=now)
-                self._follow = None
+            self._safe_off(now)
             self.log.append("手順書を最後まで流しました")
             self.done = True
             return
@@ -820,12 +953,17 @@ class ExperimentRunner:
             else:
                 self._op = self.ops.spawn(name, tuple(s.get("offset", [0, 3, 15])), relative=True, t=now)
         elif op == "target":
-            self._op = self.ops.target(s["vehicle"], float(s["distance"]), float(s["y"]), t=now)
+            self._op = self.ops.target(s["vehicle"], float(s["distance"]), float(s["y"]),
+                                       same_direction=bool(s.get("same_direction")), t=now)
         elif op == "target_despawn":
-            if self._follow:
-                self.commander.issue({self._follow[3]: 0.0}, t=now)  # 目標を無効にして、撃たせない
-                self._follow = None
+            self._safe_off(now)
             self._op = self.ops.target_despawn(t=now)
+        elif op == "target_reset":
+            self._op = self.ops.target_reset(t=now)
+        elif op == "fire":
+            self._fire_ch = int(s.get("channel", 5))
+            self._fire_base = self.recorder.shot_count()
+            self.commander.issue({self._fire_ch: 1.0}, t=now)
         elif op == "aim_target":
             self._follow = [int(c) for c in s.get("channels", [1, 2, 3, 4])]
             self._follow_last = None
@@ -881,9 +1019,32 @@ class ExperimentRunner:
             if elapsed >= float(s["seconds"]):
                 self._rows[-1]["ok"] = True
                 self._next(now)
+        elif op == "fire":
+            got = self.recorder.shot_count() - self._fire_base
+            want = int(s["shots"])
+            if got >= want:
+                self.commander.issue({self._fire_ch: 0.0}, t=now)
+                self._shot_marks.append({"step": self._i + 1, "from": self._fire_base + 1, "to": self._fire_base + got,
+                                         "t_s": self._rel(now)})
+                self._rows[-1]["ok"] = True
+                self._next(now)
+            elif elapsed >= float(s.get("timeout_s", 30)):
+                self._fail(now, f"{want}発撃てなかった（{elapsed:.0f}秒で{got}発）")
         elif op in ("inject", "aim_target"):
             self._rows[-1]["ok"] = True
             self._next(now)
+
+    def _safe_off(self, now: float) -> None:
+        """射撃許可を切り、目標を無効にする（X も 0：X が 0 でなければ有効とする FCS もある）。"""
+        off: dict[int, float] = {}
+        if self._fire_ch is not None:
+            off[self._fire_ch] = 0.0
+        if self._follow:
+            off[self._follow[0]] = 0.0
+            off[self._follow[3]] = 0.0
+            self._follow = None
+        if off:
+            self.commander.issue(off, t=now)
 
     def _feed_target(self, now: float) -> None:
         """標的の座標をマイコンに渡す。前の分が届いてから、動いたときだけ（指示を溜めない）。"""
@@ -912,9 +1073,7 @@ class ExperimentRunner:
         if self._rows and self._rows[-1]["end_s"] is None:
             self._rows[-1]["end_s"] = self._rel(now)
         self.log.append(f"止めました: {reason}")
-        if self._follow:
-            self.commander.issue({self._follow[3]: 0.0}, t=now)  # 目標を無効にして、撃たせない
-            self._follow = None
+        self._safe_off(now)
         st = self.ops.status()
         if st["vid"] >= 0:
             self._cleanup_op = self.ops.despawn(t=now)
@@ -931,6 +1090,8 @@ class ExperimentRunner:
                "stop_latency_s": None}
         if self._stopped_t is not None and self._injects:
             res["stop_latency_s"] = round(res["stopped_at_s"] - self._injects[-1]["t_s"], 3)
+        if self._shot_marks:
+            res["fire_steps"] = self._shot_marks
         return res
 
 
@@ -1048,6 +1209,10 @@ def make_server(host: str, port: int, recorder: Recorder, commander: Commander |
                     target = {"vid": int(q["tvid"][0]), "sim": int(q.get("tsim", ["-1"])[0])}
                     if all(k in q for k in ("tx", "ty", "tz")):
                         target["pos"] = [float(q["tx"][0]), float(q["ty"][0]), float(q["tz"][0])]
+                    if "tyaw" in q:
+                        target["yaw"] = float(q["tyaw"][0])
+                    if "tup" in q:
+                        target["up"] = float(q["tup"][0])
                 damage = parse_damage(q["dmg"][0]) if "dmg" in q else None
                 lost = int(q.get("dlost", ["0"])[0])
                 stops = int(q.get("stop", ["0"])[0])
@@ -1070,7 +1235,14 @@ def make_server(host: str, port: int, recorder: Recorder, commander: Commander |
                 bools = parse_bools(self.path)
             except ValueError:
                 bools = None
-            recorder.add(seq, tick, vals, t=now, ack=ack, bools=bools)
+            try:
+                chans = parse_channels(self.path)
+                shots = parse_shots(self.path)
+                recorder.add(seq, tick, vals, t=now, ack=ack, bools=bools, channels=chans, shots=shots)
+            except ValueError as e:
+                recorder.add_malformed(self.path, str(e))
+                self._reply(200, f"error: {e}")
+                return
             if ack is not None:
                 commander.on_ack(ack, t=now)
             self._reply(200, commander.reply_body())
@@ -1379,6 +1551,14 @@ def main(argv: list[str] | None = None) -> int:
         out = {"script": script, "result": runner.result(), "values": s, "load": load,
                "load_samples": sampler.samples, "addon_ops": ops.summary()}
         text = report_run(out["result"], s, load, out["addon_ops"]["damage"])
+        shots = rec.shots()
+        if shots:
+            tv = {int(k) for k in out["addon_ops"]["target_pose"]} or None
+            out["fcs"] = fcs_summary(shots, ops.damage, tv)
+            text += "\n" + "\n".join(report_fcs(out["fcs"]))
+        for vid, p in out["addon_ops"]["target_pose"].items():
+            text += (f"\n標的 {vid} の向き：方位 {p['yaw_min']:.1f}〜{p['yaw_max']:.1f}°、"
+                     f"立ち具合の最小 {p['up_min']:.3f}（1 = まっすぐ）")
     else:
         load = sampler.summary()
         out = {"values": s, "q4": runner.summary(), "load": load, "load_samples": sampler.samples,

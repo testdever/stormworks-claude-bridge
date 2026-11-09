@@ -4,8 +4,11 @@
 --   or "ok|<id>|lift|<dy>" (teleport the vehicle dy metres up, to check physics keeps running)
 --   or "ok|<id>|move_player|<x>|<y>|<z>" (move the first real player there, so the ground and sea load)
 --   rel=1: x,y,z are offsets from the first player's position
---   or "ok|<id>|target|<save_name>|<distance>|<y>" (place a target <distance> m ahead of where the player looks, at height y)
+--   or "ok|<id>|target|<save_name>|<distance>|<y>|<same>" (place a target <distance> m ahead of where the player looks,
+--   at height y; same=1: from the same place and in the same direction as the previous target)
 --   or "ok|<id>|target_despawn" or "ok|<id>|weather|<fog>|<rain>|<wind>" (0-1)
+--   or "ok|<id>|target_reset" (put the target back where and how it was placed; it is unloaded and reloaded)
+-- The target's heading (tyaw, deg) and the up axis height (tup, 1 = upright) are reported with each poll
 -- Chat "?claude stop": despawn the vehicle and the target now, and tell the relay to stop the experiment (stop=<count>)
 -- Damage to the placed vehicle or the target is reported as dmg=<vehicle>:<amount>:<x>:<y>:<z>:<body>;...
 -- No reply: wait longer before each resend (1s, 2s, 4s .. 10s) so the game does not pile up requests
@@ -30,6 +33,8 @@ vid=-1
 gid=-1
 tvid=-1
 tgid=-1
+tmat=nil
+tbase=nil
 -- damage events not yet received by the relay; sentN of them went out with the request now waiting
 dmg={}
 sentN=0
@@ -175,9 +180,11 @@ function run(op,a)
 	elseif op=="move_player" then
 		return movePlayer(tonumber(a[1]),tonumber(a[2]),tonumber(a[3]))
 	elseif op=="target" then
-		return spawnTarget(a[1],tonumber(a[2]),tonumber(a[3]))
+		return spawnTarget(a[1],tonumber(a[2]),tonumber(a[3]),a[4]=="1")
 	elseif op=="target_despawn" then
 		return despawnTarget()
+	elseif op=="target_reset" then
+		return resetTarget()
 	elseif op=="weather" then
 		local f,r,w=tonumber(a[1]),tonumber(a[2]),tonumber(a[3])
 		if f==nil or r==nil or w==nil then return false end
@@ -230,25 +237,30 @@ function despawn(quiet)
 end
 
 -- a target placed ahead of where the player is looking (horizontal direction only), at world height y
-function spawnTarget(name,dist,y)
+function spawnTarget(name,dist,y,same)
 	if name==nil or dist==nil or y==nil then return false end
-	local p=firstPlayer()
-	if p==nil then return false end
-	local lx,_,lz,okL=server.getPlayerLookDirection(p)
-	local m,okP=server.getPlayerPos(p)
-	if not okL or not okP then return false end
-	local n=math.sqrt(lx*lx+lz*lz)
-	if n<1e-6 then return false end
-	local px,_,pz=matrix.position(m)
-	local x,z=px+dist*lx/n,pz+dist*lz/n
+	if not (same and tbase) then
+		local p=firstPlayer()
+		if p==nil then return false end
+		local lx,_,lz,okL=server.getPlayerLookDirection(p)
+		local m,okP=server.getPlayerPos(p)
+		if not okL or not okP then return false end
+		local n=math.sqrt(lx*lx+lz*lz)
+		if n<1e-6 then return false end
+		local px,_,pz=matrix.position(m)
+		tbase={px,pz,lx/n,lz/n}
+	end
+	local x,z=tbase[1]+dist*tbase[3],tbase[2]+dist*tbase[4]
 	despawnTarget(true)
-	local v,ok,_,g=server.spawnVehicle(matrix.translation(x,y,z),name)
+	local mt=matrix.translation(x,y,z)
+	local v,ok,_,g=server.spawnVehicle(mt,name)
 	if not ok then
 		server.announce("[Claude]","target spawn failed: "..name)
 		return false
 	end
 	tvid=v
 	tgid=g or -1
+	tmat=mt
 	okT=t
 	hitN=0
 	hitShownN=0
@@ -256,6 +268,12 @@ function spawnTarget(name,dist,y)
 	g_savedata.tgid=tgid
 	server.announce("[Claude]",string.format("target %s id=%d at X=%.1f Y=%.1f Z=%.1f (%.0f m)",name,v,x,y,z,dist))
 	return true
+end
+
+function resetTarget()
+	if tvid<0 or tmat==nil then return false end
+	if tgid>=0 then return server.setGroupPos(tgid,tmat) end
+	return server.setVehiclePos(tvid,tmat)
 end
 
 function despawnTarget(quiet)
@@ -269,6 +287,7 @@ function despawnTarget(quiet)
 	if not quiet then server.announce("[Claude]","target despawned id="..tvid.." (damaged "..hitN.." times)") end
 	tvid=-1
 	tgid=-1
+	tmat=nil
 	g_savedata.tvid=-1
 	g_savedata.tgid=-1
 	return ok
@@ -282,6 +301,11 @@ function targetQuery()
 	if ok then
 		local x,y,z=matrix.position(m)
 		q=q..string.format("&tx=%.3f&ty=%.3f&tz=%.3f",x,y,z)
+		local fx,fz,uy=m[9],m[11],m[6]
+		if fx and fz and uy then
+			local at=math.atan2 or math.atan
+			q=q..string.format("&tyaw=%.2f&tup=%.4f",math.deg(at(fx,fz)),uy)
+		end
 	end
 	return q
 end

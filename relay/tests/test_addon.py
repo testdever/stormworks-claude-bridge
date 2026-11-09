@@ -163,6 +163,7 @@ class FakeServerApi:
         self.player_moves: list[tuple] = []
         self.players = [{"id": 0, "name": "p", "steam_id": "76561198000000000"}]
         self.weather: list[tuple] = []
+        self.group_moves: list[tuple] = []
 
     def table(self):
         L = self.lua
@@ -173,7 +174,9 @@ class FakeServerApi:
             "despawnVehicle": lambda vid, inst: self._despawn(vid),
             "getVehicleSimulating": lambda vid: (vid in self.vehicles, True),
             "getPlayers": lambda: L.table_from({i + 1: L.table_from(p) for i, p in enumerate(self.players)}),
-            "getVehiclePos": lambda vid: (L.table_from({"x": 1.0, "y": 2.0, "z": 3.0}), vid in self.vehicles),
+            "getVehiclePos": lambda vid: (L.table_from({"x": 1.0, "y": 2.0, "z": 3.0, 6: 1.0, 9: 1.0, 11: 1.0}),
+                                          vid in self.vehicles),
+            "setGroupPos": lambda gid, m: (self.group_moves.append((gid, m["x"], m["y"], m["z"])) or True),
             "setVehiclePos": lambda vid, m: (self.moved_to.append((vid, m["x"], m["y"], m["z"])) or vid in self.vehicles),
             "setPlayerPos": lambda pid, m: (self.player_moves.append((pid, m["x"], m["y"], m["z"])) or True),
             "getPlayerPos": lambda pid: (L.table_from({"x": 10.0, "y": 2.0, "z": -5.0}), True),
@@ -443,6 +446,37 @@ class AddonLuaTest(unittest.TestCase):
         self.tick(5)
         self.assertEqual(len(self.ops.damage), 1)
         self.assertEqual(len(g.dmg), 0)
+
+    def test_target_reset_puts_it_back_where_it_was_placed(self):
+        self.tick(3)
+        self.ops.target("claude_target", 2000, 1)
+        self.tick(6)
+        a = self.ops.target_reset()
+        self.tick(6)
+        self.assertTrue(self.ops.get(a)["ok"])
+        self.assertEqual(self.api.group_moves, [(1101, 1210.0, 1.0, 1595.0)])
+        st = self.ops.status()["target"]
+        self.assertAlmostEqual(st["yaw"], 45.0, places=1)   # 前向き (1, ?, 1)
+        self.assertAlmostEqual(st["up"], 1.0)
+
+    def test_second_target_keeps_the_first_direction(self):
+        self.tick(3)
+        self.ops.target("claude_target", 1000, 1)
+        self.tick(6)
+        g = self.lua.globals()
+        g.server.getPlayerLookDirection = lambda pid: (-1.0, 0.0, 0.0, True)  # その間に本人が向きを変えた
+        self.ops.target_despawn()
+        self.tick(6)
+        self.ops.target("claude_target", 2000, 1, same_direction=True)
+        self.tick(6)
+        self.assertEqual(self.api.spawned_at[-1], (10.0 + 1200.0, 1.0, -5.0 + 1600.0))
+        self.assertEqual(self.api.spawned_at[0], (10.0 + 600.0, 1.0, -5.0 + 800.0))
+
+    def test_target_reset_without_target_fails(self):
+        self.tick(3)
+        a = self.ops.target_reset()
+        self.tick(6)
+        self.assertFalse(self.ops.get(a)["ok"])
 
     def test_weather(self):
         self.tick(3)

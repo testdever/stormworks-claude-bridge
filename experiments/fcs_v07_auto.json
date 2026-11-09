@@ -1,0 +1,123 @@
+{
+  "name": "FCS V-07（手放し）：1 km・2 km で 10 発ずつ、撃った瞬間の照準のずれと命中",
+  "note": "test calc（陸に固定した Battle Cannon と FCS）用。つなぎのマイコンは game/fcs_bridge.lua。標的の座標は ch1 = X、ch2 = Z、ch3 = Y（test calc の並び）、射撃許可は指示 5（つなぎのマイコンの on/off 出力 1 → FCS の allow fire）。1発ごとに標的を置いたときの向きに戻してから撃つ。本人は始めに撃ちたい海の方向を向くだけ",
+  "steps": [
+    {
+      "op": "weather",
+      "fog": 0,
+      "rain": 0,
+      "wind": 0,
+      "label": "天気を穏やかにする（霧・雨・風を 0）"
+    },
+    {
+      "op": "wait",
+      "seconds": 10,
+      "label": "撃ちたい方向を向いて待つ"
+    },
+    {
+      "op": "target",
+      "vehicle": "claude_target",
+      "distance": 1000,
+      "y": 2,
+      "label": "向いている方向の 1 km 先に標的を置く"
+    },
+    {
+      "op": "aim_target",
+      "channels": [
+        1,
+        3,
+        2,
+        4
+      ],
+      "label": "標的の座標を FCS に渡し続ける（ch1 = X、ch2 = Z、ch3 = Y）"
+    },
+    {
+      "op": "wait",
+      "seconds": 8,
+      "label": "砲塔が向くのを待つ"
+    },
+    {
+      "op": "repeat",
+      "times": 10,
+      "steps": [
+        {
+          "op": "target_reset",
+          "label": "標的を置いたときの向きに戻す"
+        },
+        {
+          "op": "wait",
+          "seconds": 2.5,
+          "label": "標的が落ち着くのを待つ"
+        },
+        {
+          "op": "fire",
+          "shots": 1,
+          "timeout_s": 20,
+          "label": "1発撃つ"
+        },
+        {
+          "op": "wait",
+          "seconds": 3.0,
+          "label": "着弾を待つ"
+        }
+      ]
+    },
+    {
+      "op": "target_despawn",
+      "label": "1 km の標的を片付ける"
+    },
+    {
+      "op": "target",
+      "vehicle": "claude_target",
+      "distance": 2000,
+      "y": 2,
+      "same_direction": true,
+      "label": "同じ方向の 2 km 先に標的を置く"
+    },
+    {
+      "op": "aim_target",
+      "channels": [
+        1,
+        3,
+        2,
+        4
+      ],
+      "label": "標的の座標を FCS に渡し続ける"
+    },
+    {
+      "op": "wait",
+      "seconds": 8,
+      "label": "砲塔が向くのを待つ"
+    },
+    {
+      "op": "repeat",
+      "times": 10,
+      "steps": [
+        {
+          "op": "target_reset",
+          "label": "標的を置いたときの向きに戻す"
+        },
+        {
+          "op": "wait",
+          "seconds": 2.5,
+          "label": "標的が落ち着くのを待つ"
+        },
+        {
+          "op": "fire",
+          "shots": 1,
+          "timeout_s": 20,
+          "label": "1発撃つ"
+        },
+        {
+          "op": "wait",
+          "seconds": 4.5,
+          "label": "着弾を待つ"
+        }
+      ]
+    },
+    {
+      "op": "target_despawn",
+      "label": "2 km の標的を片付ける"
+    }
+  ]
+}

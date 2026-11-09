@@ -26,6 +26,8 @@ class World:
         self.first_value_delay, self.never_values, self.spawned_t = first_value_delay, never_values, None
         self.moved_to = []
         self.target_pos = None  # 置いた標的の位置（アドオンが知らせる）
+        self.resets = 0
+        self.shot_n, self.last_shot = 0, -99.0   # 射撃許可（出力5）が出ている間、2.5 秒ごとに撃つ
         self.ghost_from = None  # この時刻から、片付けられずに残った別の機体のマイコンも値を送る
         self.ghost_seq = 6
 
@@ -53,6 +55,8 @@ class World:
                 self.target_pos = [100.0, 0.0, 2000.0]
             elif p["op"] == "target_despawn":
                 self.target_pos = None
+            elif p["op"] == "target_reset":
+                self.resets += 1
             self.ops.on_poll(ack=p["id"], ok=ok, vid=self.vid, sim=1 if self.vid >= 0 else -1, players=1, t=t,
                              target=self._target())
         else:
@@ -72,7 +76,13 @@ class World:
             v[16] = (t * 1.25 * self.cmd[1]) % 1
             if self.cmd[8] > 0.5:
                 v = [math.nan] * 32
-            self.rec.add(seq=self.seq, tick=self.seq * 3, values=v, t=t, ack=self.ack)
+            shots = None
+            if self.cmd[5] > 0.5 and t - self.last_shot >= 2.5:
+                self.shot_n += 1
+                self.last_shot = t
+                shots = [{"n": self.shot_n, "tick": self.seq * 3, "diff": 0.001, "req": 3.2, "range": 2000.0,
+                          "pred": 0.1, "tof": 3.0}]
+            self.rec.add(seq=self.seq, tick=self.seq * 3, values=v, t=t, ack=self.ack, shots=shots)
             self.com.on_ack(self.ack, t=t)
 
     def _target(self):
@@ -218,7 +228,7 @@ class ExperimentRunnerTest(unittest.TestCase):
         self.assertEqual(r.result()["status"], "completed", r.result()["reason"])
         sent = [c["values"] for c in w.com.summary()["commands"]]
         self.assertEqual(sent[0], {"1": 100.0, "2": 0.0, "3": 2000.0, "4": 1.0})
-        self.assertEqual(sent[-1], {"4": 0.0}, "終わったら目標を無効にする")
+        self.assertEqual(sent[-1], {"1": 0.0, "4": 0.0}, "終わったら目標を無効にする（X も 0）")
         self.assertEqual(w.cmd[3], 2000.0)
 
     def test_moving_target_is_fed_again_but_not_every_tick(self):
@@ -263,6 +273,62 @@ class ExperimentRunnerTest(unittest.TestCase):
         w.ops.stop_requests = 2   # 前の実験のときに打った分
         r = w.run(BASIC)
         self.assertEqual(r.result()["status"], "completed", r.result()["reason"])
+
+    FIRE = {"name": "撃つ", "steps": [
+        {"op": "spawn", "vehicle": "claude_test", "offset": [0, 3, 15]},
+        {"op": "target", "vehicle": "claude_target", "distance": 2000, "y": 2},
+        {"op": "aim_target"},
+        {"op": "repeat", "times": 3, "steps": [
+            {"op": "target_reset", "label": "標的を戻す"},
+            {"op": "wait", "seconds": 1},
+            {"op": "fire", "shots": 1, "timeout_s": 10, "label": "1発撃つ"},
+            {"op": "wait", "seconds": 4},
+        ]},
+        {"op": "target_despawn"},
+    ]}
+
+    def test_fire_a_fixed_number_of_shots_with_target_reset(self):
+        w = World()
+        r = w.run(self.FIRE)
+        res = r.result()
+        self.assertEqual(res["status"], "completed", res["reason"])
+        self.assertEqual(w.shot_n, 3, "1発ずつ、3回")
+        self.assertEqual(w.resets, 3)
+        self.assertEqual(w.cmd[5], 0.0, "撃ち終わったら射撃許可を切る")
+        self.assertEqual([m["from"] for m in res["fire_steps"]], [1, 2, 3])
+        self.assertTrue(any("（2/3）" in s["label"] for s in res["steps"]))
+
+    def test_fire_times_out_when_no_shot_comes(self):
+        w = World()
+        w.never_values = True
+        script = {"name": "撃てない", "watch": {"values_grace_s": 100}, "steps": [
+            {"op": "spawn", "vehicle": "claude_test", "offset": [0, 3, 15]},
+            {"op": "fire", "shots": 2, "timeout_s": 5},
+        ]}
+        r = w.run(script)
+        self.assertEqual(r.result()["status"], "stopped")
+        self.assertIn("2発撃てなかった", r.result()["reason"])
+
+    def test_stop_turns_fire_permission_off(self):
+        w = World()
+        orig = w.tick
+
+        def tick(t):
+            w.ops.stop_requests = 1 if t >= 4.0 else 0
+            orig(t)
+        w.tick = tick
+        script = {"name": "止める", "steps": [
+            {"op": "spawn", "vehicle": "claude_test", "offset": [0, 3, 15]},
+            {"op": "fire", "shots": 50, "timeout_s": 200},
+        ]}
+        r = w.run(script)
+        self.assertEqual(r.result()["status"], "stopped")
+        # 止めると同時に機体も片付くので、ここでは「切る指示を出したか」を見る（test calc は片付けない機体）
+        self.assertEqual(w.com.summary()["commands"][-1]["values"].get("5"), 0.0)
+
+    def test_repeat_needs_times_and_steps(self):
+        with self.assertRaises(ValueError):
+            relay.ExperimentRunner._validate({"steps": [{"op": "repeat", "times": 0, "steps": [{"op": "wait", "seconds": 1}]}]})
 
     def test_bad_script_is_rejected(self):
         with self.assertRaises(ValueError):
