@@ -39,9 +39,7 @@ Claude は手順書（`experiments/*.json`）を書き、`python relay/relay.py 
 2. **Q10：** 本人が実際にしたい計測実験の規模で1回回し、重さを感じたかを聞く。合格なら D-004 の [trial] を片付ける。
 3. 落ちる件は、新しい Lua でもう何回か様子を見る。
 
-本人の PC での動かし方：デスクトップの `relay
-elay.py` は古いので使わない。リポジトリ（`Desktop
-elay\stormworks-claude-bridge`）の
+本人の PC での動かし方：デスクトップの `relay\relay.py` は古いので使わない。リポジトリ（`Desktop\relay\stormworks-claude-bridge`）の
 `relay/relay.py` と `experiments/` を、デスクトップの `relay` フォルダから動かす（記録は `relay\logs\` に残る）。
 手順書は、ワールドの座標を決め打ちにせず、本人の立っている場所から 6m 先に置く（ワールドごとに最初の島の場所が違う）。
 Lua のテストは、スマート アプリ コントロールに止められない Lua 5.1 を使う（`relay/tests/luart.py`）。
