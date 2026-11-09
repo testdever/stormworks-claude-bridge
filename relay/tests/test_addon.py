@@ -164,6 +164,7 @@ class FakeServerApi:
         self.players = [{"id": 0, "name": "p", "steam_id": "76561198000000000"}]
         self.weather: list[tuple] = []
         self.settings: dict[str, bool] = {}
+        self.now_weather = {"fog": 0.3, "rain": 0.1, "wind": 0.6, "snow": 0.0, "temp": 0.5}
         self.group_moves: list[tuple] = []
 
     def table(self):
@@ -183,7 +184,9 @@ class FakeServerApi:
             "getPlayerPos": lambda pid: (L.table_from({"x": 10.0, "y": 2.0, "z": -5.0}), True),
             "announce": lambda name, msg: self.announces.append(str(msg)),
             "getPlayerLookDirection": lambda pid: (0.6, -0.2, 0.8, True),
-            "setWeather": lambda f, r, w: self.weather.append((f, r, w)),
+            "setWeather": lambda f, r, w: (self.weather.append((f, r, w)),
+                                           self.now_weather.update({"fog": f, "rain": r, "wind": w})),
+            "getWeather": lambda m: self.lua.table_from(self.now_weather),
             "setGameSetting": lambda name, v: self.settings.__setitem__(name, bool(v)),
             "getGameSettings": lambda: self.lua.table_from(self.settings),
         })
@@ -538,16 +541,25 @@ class AddonLuaTest(unittest.TestCase):
         self.assertTrue(self.ops.get(a)["ok"])
         self.assertEqual(self.api.weather[0], (0.0, 0.2, 0.5))
 
-    def test_weather_is_set_again_and_again(self):
+    def test_weather_is_set_again_only_when_it_differs(self):
         self.tick(3)
         self.ops.weather(0, 0, 0)
         self.tick(6)
         n = len(self.api.weather)
-        self.api.settings["override_weather"] = False   # ゲームが上書きを戻しても
         self.lua.execute("for i=1,130 do onTick(1) end")
-        self.assertGreaterEqual(len(self.api.weather), n + 2)
+        self.assertEqual(len(self.api.weather), n, "天気が頼んだとおりなら、かけ直さない")
+        self.api.settings["override_weather"] = False   # ゲームが上書きを戻して、風が吹いた
+        self.api.now_weather["wind"] = 0.5
+        self.lua.execute("for i=1,70 do onTick(1) end")
+        self.assertEqual(len(self.api.weather), n + 1)
         self.assertEqual(self.api.weather[-1], (0.0, 0.0, 0.0))
         self.assertTrue(self.api.settings["override_weather"])
+
+    def test_wind_at_the_target_is_reported(self):
+        self.tick(3)
+        self.ops.target("claude_target", 2000, 1)
+        self.tick(6)
+        self.assertAlmostEqual(self.ops.status()["target"]["wind"], 0.6)
 
     def test_leftover_target_is_despawned_when_world_loads(self):
         self.api.vehicles[77] = "claude_target"

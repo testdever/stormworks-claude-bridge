@@ -15,6 +15,12 @@
       "label": "電気を無限にする"
     },
     {
+      "op": "setting",
+      "name": "infinite_ammo",
+      "on": true,
+      "label": "弾を無限にする（test calc の給弾は弾が無限のときだけ動く）"
+    },
+    {
       "op": "weather",
       "fog": 0,
       "rain": 0,

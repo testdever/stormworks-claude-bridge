@@ -428,6 +428,8 @@ class AddonOps:
                 p["yaw_min"] = min(p["yaw_min"], target["yaw"])
                 p["yaw_max"] = max(p["yaw_max"], target["yaw"])
                 p["up_min"] = min(p["up_min"], target.get("up", 1.0))
+                if "wind" in target:
+                    p["wind_max"] = max(p.get("wind_max", 0.0), target["wind"])
                 if len(self.pose_log) < 100000:
                     self.pose_log.append((t, target["vid"], target["yaw"], target.get("up", 1.0)))
             if self._log and (vid >= 0 or target or damage):
@@ -1285,6 +1287,8 @@ def make_server(host: str, port: int, recorder: Recorder, commander: Commander |
                         target["yaw"] = float(q["tyaw"][0])
                     if "tup" in q:
                         target["up"] = float(q["tup"][0])
+                    if "twind" in q:
+                        target["wind"] = float(q["twind"][0])
                 damage = parse_damage(q["dmg"][0]) if "dmg" in q else None
                 lost = int(q.get("dlost", ["0"])[0])
                 stops = int(q.get("stop", ["0"])[0])
@@ -1636,6 +1640,9 @@ def main(argv: list[str] | None = None) -> int:
             for vid, p in out["addon_ops"]["target_pose"].items():
                 text += (f"\n標的 {vid} の向き：方位 {p['yaw_min']:.1f}〜{p['yaw_max']:.1f}°、"
                          f"立ち具合の最小 {p['up_min']:.3f}（1 = まっすぐ）")
+        winds = [p["wind_max"] for p in poses.values() if "wind_max" in p]
+        if winds:
+            text += f"\n標的のところの風（server.getWeather、0〜1）：最大 {max(winds):.3f}"
     else:
         load = sampler.summary()
         out = {"values": s, "q4": runner.summary(), "load": load, "load_samples": sampler.samples,

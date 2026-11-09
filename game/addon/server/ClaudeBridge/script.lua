@@ -8,7 +8,8 @@
 --   or "ok|<id>|target|<save_name>|<distance>|<y>|<same>" (place a target <distance> m ahead of where the player looks,
 --   at height y; same=1: from the same place and in the same direction as the previous target)
 --   or "ok|<id>|target_despawn" or "ok|<id>|weather|<fog>|<rain>|<wind>" (0-1; turns the override_weather setting on,
---   and sets it again every WEATHER_EVERY ticks: a change right after loading the world did not always take)
+--   checks it every WEATHER_EVERY ticks with server.getWeather and sets it again only when it differs:
+--   a change right after loading the world did not always take)
 --   or "ok|<id>|setting|<name>|<0 or 1>" (server.setGameSetting, e.g. vehicle_damage, infinite_batteries)
 --   or "ok|<id>|target_reset" (put the target back where and how it was placed; it is unloaded and reloaded,
 --   but keeps spinning and moving if it was hit)
@@ -48,6 +49,7 @@ MAXDMG=500
 dmgLost=0
 hitN=0
 weather=nil
+weatherN=0
 WEATHER_EVERY=60
 hitShownN=0
 stopN=0
@@ -109,8 +111,13 @@ function onTick(game_ticks)
 		log("tick="..t.." seq="..seq.." ack="..ack.." replies="..replyN.." waiting="..tostring(waitT>=0).." hold="..hold.." players="..playerCount())
 	end
 	if weather and t%WEATHER_EVERY==0 then
-		server.setGameSetting("override_weather",true)
-		server.setWeather(weather[1],weather[2],weather[3])
+		local w=server.getWeather(tmat or matrix.translation(0,0,0))
+		if w==nil or math.abs((w.fog or 0)-weather[1])>0.02 or math.abs((w.rain or 0)-weather[2])>0.02
+			or math.abs((w.wind or 0)-weather[3])>0.02 then
+			server.setGameSetting("override_weather",true)
+			server.setWeather(weather[1],weather[2],weather[3])
+			weatherN=weatherN+1
+		end
 	end
 	if t%60==0 and hitN>hitShownN then
 		server.announce("[Claude]","target damaged x"..(hitN-hitShownN).." (total "..hitN..")")
@@ -356,6 +363,8 @@ function targetQuery()
 			local at=math.atan2 or math.atan
 			q=q..string.format("&tyaw=%.2f&tup=%.4f",math.deg(at(fx,fz)),uy)
 		end
+		local w=server.getWeather(m)
+		if w and w.wind then q=q..string.format("&twind=%.3f",w.wind) end
 	end
 	return q
 end
