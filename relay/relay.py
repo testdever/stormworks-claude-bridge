@@ -1143,6 +1143,10 @@ class ExperimentRunner:
         pos = tg.get("pos")
         if pos is None or not self.commander.all_acked() or now - self._follow_t < self.FOLLOW_INTERVAL:
             return
+        if tg.get("sim", 1) != 1:
+            # 読み込まれる前の位置（置いた場所）は、読み込まれた後と違うことがある（動かない標的で 2.1 m）。
+            # 渡すと FCS がその差を標的の速さとみなし、止まった標的では直らないまま予測がずれ続けた
+            return
         last = self._follow_last
         if last is not None and max(abs(a - b) for a, b in zip(pos, last)) < self.FOLLOW_MOVE:
             return

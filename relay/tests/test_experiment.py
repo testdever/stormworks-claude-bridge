@@ -239,6 +239,32 @@ class ExperimentRunnerTest(unittest.TestCase):
         self.assertEqual(sent[-1], {"1": 0.0, "4": 0.0}, "終わったら目標を無効にする（X も 0）")
         self.assertEqual(w.cmd[3], 2000.0)
 
+    def test_target_position_is_not_fed_before_the_target_is_loaded(self):
+        script = {"name": "読み込み前", "steps": [
+            {"op": "spawn", "vehicle": "claude_test", "offset": [0, 3, 15]},
+            {"op": "target", "vehicle": "claude_target", "distance": 2000, "y": 2},
+            {"op": "aim_target"},
+            {"op": "wait", "seconds": 3},
+        ]}
+        w = World()
+        orig = w._target
+        placed = {}
+
+        def target():
+            tg = orig()
+            if tg is None:
+                return None
+            placed.setdefault("t", w._now)
+            if w._now - placed["t"] < 1.0:   # 読み込まれるまでは、置いた場所（2.1 m 上）を知らせる
+                tg["sim"] = 0
+                tg["pos"][1] += 2.1
+            return tg
+        w._target = target
+        r = w.run(script)
+        self.assertEqual(r.result()["status"], "completed", r.result()["reason"])
+        ys = [c["values"].get("2") for c in w.com.summary()["commands"] if "2" in c["values"]]
+        self.assertEqual(ys, [0.0], "読み込まれた後の位置だけを渡す")
+
     def test_moving_target_is_fed_again_but_not_every_tick(self):
         script = {"name": "動く標的", "steps": [
             {"op": "spawn", "vehicle": "claude_test", "offset": [0, 3, 15]},

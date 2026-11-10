@@ -1,0 +1,490 @@
+{
+  "script": {
+    "name": "FCS V-07（手放し・場所を固定：保存 claude_fcs）：1 km・2 km で 10 発ずつ",
+    "note": "保存 claude_fcs（seed が同じなら同じ地形）の、8回目（2026-11-09 22:26）と同じ場所と向きで流す。本人は保存を読み込むだけでよく、どちらを向いていてもよい（プレイヤーは保存した場所の近くにいること：地形と海が読み込まれるため）。test calc は世界の位置に、前（+z）を方位 177.8°（海の方向）に向けて出す。標的は基準点 [12811.596, -13049.853] から方向 [0.039015, -0.999239] に置く。ほかは fcs_v07_auto.json と同じ。。標的はアドオンに入れた claude_target（vehicle_1.xml）を動かない機体（static）として置く（浮かべると重心が低いせいで浮力で揺れ、流され、回った）",
+    "steps": [
+      {
+        "op": "setting",
+        "name": "vehicle_damage",
+        "on": true,
+        "label": "機体が傷つくようにする（当たりを数えるため）"
+      },
+      {
+        "op": "setting",
+        "name": "infinite_batteries",
+        "on": true,
+        "label": "電気を無限にする"
+      },
+      {
+        "op": "setting",
+        "name": "infinite_ammo",
+        "on": true,
+        "label": "弾を無限にする（test calc の給弾は弾が無限のときだけ動く）"
+      },
+      {
+        "op": "weather",
+        "fog": 0,
+        "rain": 0,
+        "wind": 0,
+        "label": "天気を穏やかにする（天気の上書きをオンにして、霧・雨・風を 0）"
+      },
+      {
+        "op": "spawn",
+        "vehicle": "test calc",
+        "label": "test calc を決まった場所に、海の方向へ向けて出す",
+        "pos": [
+          12801.41,
+          7.44,
+          -13045.247
+        ],
+        "yaw_deg": 177.76
+      },
+      {
+        "op": "wait",
+        "seconds": 20,
+        "label": "test calc が着地して固定され、FCS が動き出し、波が収まるのを待つ"
+      },
+      {
+        "op": "target",
+        "vehicle": "claude_target",
+        "distance": 1000,
+        "y": -0.15,
+        "label": "決まった方向の 1 km 先に動かない標的を置く（浮かんだときと同じ高さ）",
+        "from": [
+          12811.596,
+          -13049.853
+        ],
+        "dir": [
+          0.039015,
+          -0.999239
+        ],
+        "static": true
+      },
+      {
+        "op": "aim_target",
+        "channels": [
+          1,
+          3,
+          2,
+          4
+        ],
+        "label": "標的の座標を FCS に渡し続ける（ch1 = X、ch2 = Z、ch3 = Y）"
+      },
+      {
+        "op": "wait",
+        "seconds": 8,
+        "label": "砲塔が向くのを待つ"
+      },
+      {
+        "op": "repeat",
+        "times": 10,
+        "steps": [
+          {
+            "op": "target_renew",
+            "label": "新しい標的に置き直す（回転・速さ・傷なし）"
+          },
+          {
+            "op": "wait",
+            "seconds": 1.0,
+            "label": "置き直した標的が読み込まれるのを待つ"
+          },
+          {
+            "op": "fire",
+            "shots": 1,
+            "timeout_s": 20,
+            "label": "標的が落ち着いたら1発撃つ",
+            "steady": {
+              "within_m": 0.3,
+              "for_s": 1.0
+            }
+          },
+          {
+            "op": "wait",
+            "seconds": 3.0,
+            "label": "着弾を待つ"
+          }
+        ]
+      },
+      {
+        "op": "target_despawn",
+        "label": "1 km の標的を片付ける"
+      },
+      {
+        "op": "target",
+        "vehicle": "claude_target",
+        "distance": 2000,
+        "y": -0.15,
+        "label": "決まった方向の 2 km 先に動かない標的を置く（浮かんだときと同じ高さ）",
+        "from": [
+          12811.596,
+          -13049.853
+        ],
+        "dir": [
+          0.039015,
+          -0.999239
+        ],
+        "static": true
+      },
+      {
+        "op": "aim_target",
+        "channels": [
+          1,
+          3,
+          2,
+          4
+        ],
+        "label": "標的の座標を FCS に渡し続ける"
+      },
+      {
+        "op": "wait",
+        "seconds": 8,
+        "label": "砲塔が向くのを待つ"
+      },
+      {
+        "op": "repeat",
+        "times": 10,
+        "steps": [
+          {
+            "op": "target_renew",
+            "label": "新しい標的に置き直す（回転・速さ・傷なし）"
+          },
+          {
+            "op": "wait",
+            "seconds": 1.0,
+            "label": "置き直した標的が読み込まれるのを待つ"
+          },
+          {
+            "op": "fire",
+            "shots": 1,
+            "timeout_s": 20,
+            "label": "標的が落ち着いたら1発撃つ",
+            "steady": {
+              "within_m": 0.3,
+              "for_s": 1.0
+            }
+          },
+          {
+            "op": "wait",
+            "seconds": 4.5,
+            "label": "着弾を待つ"
+          }
+        ]
+      },
+      {
+        "op": "target_despawn",
+        "label": "2 km の標的を片付ける"
+      },
+      {
+        "op": "despawn",
+        "label": "test calc を片付ける"
+      }
+    ]
+  },
+  "result": {
+    "name": "FCS V-07（手放し・場所を固定：保存 claude_fcs）：1 km・2 km で 10 発ずつ",
+    "status": "stopped",
+    "reason": "1発撃てなかった（20秒で0発）",
+    "steps": [
+      {
+        "i": 1,
+        "op": "setting",
+        "label": "機体が傷つくようにする（当たりを数えるため）",
+        "start_s": 0.0,
+        "end_s": 0.101,
+        "ok": true
+      },
+      {
+        "i": 2,
+        "op": "setting",
+        "label": "電気を無限にする",
+        "start_s": 0.101,
+        "end_s": 0.201,
+        "ok": true
+      },
+      {
+        "i": 3,
+        "op": "setting",
+        "label": "弾を無限にする（test calc の給弾は弾が無限のときだけ動く）",
+        "start_s": 0.201,
+        "end_s": 0.301,
+        "ok": true
+      },
+      {
+        "i": 4,
+        "op": "weather",
+        "label": "天気を穏やかにする（天気の上書きをオンにして、霧・雨・風を 0）",
+        "start_s": 0.301,
+        "end_s": 0.402,
+        "ok": true
+      },
+      {
+        "i": 5,
+        "op": "spawn",
+        "label": "test calc を決まった場所に、海の方向へ向けて出す",
+        "start_s": 0.402,
+        "end_s": 0.502,
+        "ok": true
+      },
+      {
+        "i": 6,
+        "op": "wait",
+        "label": "test calc が着地して固定され、FCS が動き出し、波が収まるのを待つ",
+        "start_s": 0.502,
+        "end_s": 20.569,
+        "ok": true
+      },
+      {
+        "i": 7,
+        "op": "target",
+        "label": "決まった方向の 1 km 先に動かない標的を置く（浮かんだときと同じ高さ）",
+        "start_s": 20.569,
+        "end_s": 20.669,
+        "ok": true
+      },
+      {
+        "i": 8,
+        "op": "aim_target",
+        "label": "標的の座標を FCS に渡し続ける（ch1 = X、ch2 = Z、ch3 = Y）",
+        "start_s": 20.669,
+        "end_s": 20.77,
+        "ok": true
+      },
+      {
+        "i": 9,
+        "op": "wait",
+        "label": "砲塔が向くのを待つ",
+        "start_s": 20.77,
+        "end_s": 28.796,
+        "ok": true
+      },
+      {
+        "i": 10,
+        "op": "target_renew",
+        "label": "新しい標的に置き直す（回転・速さ・傷なし）（1/10）",
+        "start_s": 28.796,
+        "end_s": 28.897,
+        "ok": true
+      },
+      {
+        "i": 11,
+        "op": "wait",
+        "label": "置き直した標的が読み込まれるのを待つ（1/10）",
+        "start_s": 28.897,
+        "end_s": 29.9,
+        "ok": true
+      },
+      {
+        "i": 12,
+        "op": "fire",
+        "label": "標的が落ち着いたら1発撃つ（1/10）",
+        "start_s": 29.9,
+        "end_s": 49.977,
+        "ok": false
+      }
+    ],
+    "injects": [],
+    "stopped_at_s": 49.977,
+    "stop_latency_s": null
+  },
+  "values": {
+    "received": 308,
+    "malformed": 0,
+    "malformed_examples": [],
+    "bad_values": 0,
+    "resent": 0,
+    "expected_values": 32,
+    "duplicates": 0,
+    "missing": 0,
+    "duration_s": 49.126,
+    "full_seconds": 49,
+    "min_per_sec": 6,
+    "max_per_sec": 7,
+    "avg_per_sec": 6.27,
+    "q1_pass": false
+  },
+  "load": {
+    "process": "stormworks64",
+    "available": true,
+    "cores": 16,
+    "cpu_percent_avg": 11.0,
+    "cpu_percent_max": 11.3,
+    "memory_mb_max": 2313.1,
+    "samples": 10
+  },
+  "load_samples": [
+    {
+      "t": 31881.8704887,
+      "memory_mb": 2307.6,
+      "cpu_percent": null
+    },
+    {
+      "t": 31887.3668001,
+      "memory_mb": 2311.2,
+      "cpu_percent": 10.7
+    },
+    {
+      "t": 31892.7023495,
+      "memory_mb": 2311.6,
+      "cpu_percent": 11.0
+    },
+    {
+      "t": 31898.0380119,
+      "memory_mb": 2311.4,
+      "cpu_percent": 11.0
+    },
+    {
+      "t": 31903.3740152,
+      "memory_mb": 2311.4,
+      "cpu_percent": 11.0
+    },
+    {
+      "t": 31908.7416483,
+      "memory_mb": 2312.7,
+      "cpu_percent": 11.0
+    },
+    {
+      "t": 31914.0778615,
+      "memory_mb": 2313.1,
+      "cpu_percent": 10.9
+    },
+    {
+      "t": 31919.412462,
+      "memory_mb": 2313.1,
+      "cpu_percent": 11.2
+    },
+    {
+      "t": 31924.7458334,
+      "memory_mb": 2312.9,
+      "cpu_percent": 11.2
+    },
+    {
+      "t": 31930.0727743,
+      "memory_mb": 2312.9,
+      "cpu_percent": 11.3
+    }
+  ],
+  "addon_ops": {
+    "ops": [
+      {
+        "id": 1,
+        "op": "setting",
+        "args": [
+          "vehicle_damage",
+          "1"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.091
+      },
+      {
+        "id": 2,
+        "op": "setting",
+        "args": [
+          "infinite_batteries",
+          "1"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.086
+      },
+      {
+        "id": 3,
+        "op": "setting",
+        "args": [
+          "infinite_ammo",
+          "1"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.082
+      },
+      {
+        "id": 4,
+        "op": "weather",
+        "args": [
+          "0",
+          "0",
+          "0"
+        ],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.077
+      },
+      {
+        "id": 5,
+        "op": "spawn",
+        "args": [
+          "test calc",
+          "12801.41",
+          "7.44",
+          "-13045.247",
+          "3",
+          "3.10249728"
+        ],
+        "ok": true,
+        "vid": 88,
+        "latency_s": 0.078
+      },
+      {
+        "id": 6,
+        "op": "target",
+        "args": [
+          "claude_target",
+          "1000",
+          "-0.15",
+          "2",
+          "12811.596",
+          "-13049.853",
+          "0.039015",
+          "-0.999239"
+        ],
+        "ok": true,
+        "vid": 88,
+        "latency_s": 0.085
+      },
+      {
+        "id": 7,
+        "op": "target_renew",
+        "args": [],
+        "ok": true,
+        "vid": 88,
+        "latency_s": 0.066
+      },
+      {
+        "id": 8,
+        "op": "despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.047
+      },
+      {
+        "id": 9,
+        "op": "target_despawn",
+        "args": [],
+        "ok": true,
+        "vid": -1,
+        "latency_s": 0.095
+      }
+    ],
+    "polls": 1045,
+    "damage": {
+      "lost": 0,
+      "vehicles": {}
+    },
+    "target_pose": {
+      "89": {
+        "yaw_min": 0.0,
+        "yaw_max": 0.0,
+        "up_min": 1.0,
+        "wind_max": 0.0
+      },
+      "90": {
+        "yaw_min": 0.0,
+        "yaw_max": 0.0,
+        "up_min": 1.0,
+        "wind_max": 0.0
+      }
+    }
+  }
+}
